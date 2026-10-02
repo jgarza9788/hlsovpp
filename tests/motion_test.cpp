@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -25,7 +26,7 @@ static bool near(float a, float b, float eps = 1e-5F) {
     return std::fabs(a - b) <= eps;
 }
 
-static const std::vector<EStyle> ALL = {EStyle::NONE, EStyle::RIPPLE, EStyle::CONVERGE, EStyle::SWEEP, EStyle::RANDOM, EStyle::JITTER, EStyle::SCATTER, EStyle::SPRING};
+static const std::vector<EStyle> ALL = {EStyle::NONE, EStyle::RIPPLE, EStyle::CONVERGE, EStyle::SWEEP, EStyle::RANDOM};
 
 static std::vector<SWindowSample> grid() {
     std::vector<SWindowSample> samples;
@@ -42,14 +43,40 @@ static float easeInOut(float t) { // smoothstep, a stand-in for a bezier
 static void testParse() {
     for (const auto style : ALL)
         CHECK(parseStyle(styleName(style)) == style);
-    CHECK(!parseStyle("bogus").has_value());
+    // removed styles fall back (the plugin treats unknown as none)
+    CHECK(!parseStyle("jitter").has_value());
+    CHECK(!parseStyle("spring").has_value());
     CHECK(!parseStyle("").has_value());
-    CHECK(styleName(EStyle::RIPPLE) == "ripple");
+}
+
+static void testEasings() {
+    std::set<std::string> names;
+    bool                  endpoints = true, monotonicX = true;
+    for (const auto& e : easings()) {
+        names.insert(std::string{e.name});
+        endpoints  = endpoints && near(easingY(e, 0.F), 0.F, 1e-3F) && near(easingY(e, 1.F), 1.F, 1e-3F);
+        monotonicX = monotonicX && e.x1 >= 0.F && e.x1 <= 1.F && e.x2 >= 0.F && e.x2 <= 1.F;
+        CHECK(findEasing(e.name).has_value());
+    }
+    CHECK(names.size() == easings().size()); // unique
+    CHECK(endpoints);
+    CHECK(monotonicX); // valid for Hyprland's bezier solver
+    CHECK(isEasingName("follow"));
+    CHECK(!findEasing("follow").has_value()); // follow = windowsMove's own bezier
+    CHECK(!isEasingName("bounce"));
+    CHECK(easings().size() == 3);
+    CHECK(!isEasingName("linear") && !isEasingName("expo-out")); // trimmed
+    CHECK(near(easingY(*findEasing("smooth"), 0.5F), 0.5F, 1e-2F)); // symmetric
+    CHECK(easingY(*findEasing("snappy"), 0.3F) > 0.6F);              // front-loaded
+    float peak = 0.F;
+    for (int i = 0; i <= 100; ++i)
+        peak = std::max(peak, easingY(*findEasing("bouncy"), i / 100.F));
+    CHECK(peak > 1.02F); // a little overshoot
 }
 
 static void testHash() {
-    bool inRange = true, stable = true;
-    float sum    = 0.F;
+    bool  inRange = true, stable = true;
+    float sum     = 0.F;
     for (uint64_t k = 0; k < 2000; ++k) {
         const float h = hashUnit(k * 0x1F0 + 0x55aa00, 7);
         inRange       = inRange && h >= 0.F && h < 1.F;
@@ -58,35 +85,18 @@ static void testHash() {
     }
     CHECK(inRange);
     CHECK(stable);
-    CHECK(std::fabs(sum / 2000.F - 0.5F) < 0.05F); // roughly uniform
-    CHECK(hashUnit(42, 1) != hashUnit(42, 2));      // salts differ
+    CHECK(std::fabs(sum / 2000.F - 0.5F) < 0.05F);
 }
 
-static void testEndpoints() {
-    // Every style: progress 0 at the start and exactly 1 at the end, for any delay.
+static void testEndpointsAndMonotonic() {
     for (const auto style : ALL) {
-        SParams params{.style = style, .spread = 0.5F, .jitter = 1.F, .overshoot = 1.F};
-        bool    ok = true;
-        for (float delay : {0.F, 0.3F, 1.F}) {
-            for (uint64_t key : {1ULL, 99ULL, 123456789ULL}) {
-                ok = ok && near(windowProgress(params, 0.F, delay, key, easeInOut), 0.F);
-                ok = ok && near(windowProgress(params, 1.F, delay, key, easeInOut), 1.F);
-            }
-        }
-        CHECK(ok);
-    }
-}
-
-static void testMonotonicWithoutOvershoot() {
-    for (const auto style : ALL) {
-        if (usesOvershoot(style))
-            continue;
-        SParams params{.style = style, .spread = 0.6F, .jitter = 1.F};
+        SParams params{.style = style, .spread = 0.6F};
         bool    ok = true;
         for (float delay : {0.F, 0.5F, 1.F}) {
+            ok         = ok && near(windowProgress(params, 0.F, delay, easeInOut), 0.F) && near(windowProgress(params, 1.F, delay, easeInOut), 1.F);
             float prev = 0.F;
             for (int i = 0; i <= 200; ++i) {
-                const float v = windowProgress(params, i / 200.F, delay, 777, easeInOut);
+                const float v = windowProgress(params, i / 200.F, delay, easeInOut);
                 ok            = ok && v >= prev - 1e-6F && v >= 0.F && v <= 1.F;
                 prev          = v;
             }
@@ -97,56 +107,18 @@ static void testMonotonicWithoutOvershoot() {
 
 static void testStagger() {
     SParams params{.style = EStyle::RIPPLE, .spread = 0.5F};
-    // A delay-1 window hasn't moved when the delay-0 window is well underway.
-    CHECK(windowProgress(params, 0.25F, 1.F, 1, nullptr) == 0.F);
-    CHECK(windowProgress(params, 0.25F, 0.F, 1, nullptr) > 0.4F);
-    // With spread 0 everything moves together.
+    CHECK(windowProgress(params, 0.25F, 1.F, nullptr) == 0.F);
+    CHECK(windowProgress(params, 0.25F, 0.F, nullptr) > 0.4F);
     params.spread = 0.F;
-    CHECK(near(windowProgress(params, 0.3F, 0.F, 1, nullptr), windowProgress(params, 0.3F, 1.F, 1, nullptr)));
-    // Out-of-range spread is clamped, never divides by zero.
+    CHECK(near(windowProgress(params, 0.3F, 0.F, nullptr), windowProgress(params, 0.3F, 1.F, nullptr)));
     params.spread = 5.F;
-    CHECK(std::isfinite(windowProgress(params, 0.95F, 1.F, 1, nullptr)));
+    CHECK(std::isfinite(windowProgress(params, 0.95F, 1.F, nullptr)));
     params.spread = NAN;
-    CHECK(std::isfinite(windowProgress(params, 0.5F, 1.F, 1, nullptr)));
-}
-
-static void testJitterHasNoDeadTime() {
-    // Jitter has no delays, so windows must use the whole animation (no
-    // early finish caused by spread).
-    SParams params{.style = EStyle::JITTER, .spread = 0.8F, .jitter = 0.F};
-    CHECK(near(windowProgress(params, 0.5F, 0.F, 3, nullptr), 0.5F));
+    CHECK(std::isfinite(windowProgress(params, 0.5F, 1.F, nullptr)));
+    // none: no stagger, whatever the spread
+    params = {.style = EStyle::NONE, .spread = 0.8F};
     CHECK(effectiveSpread(params) == 0.F);
-    params.jitter = 1.F;
-    bool differs  = false;
-    for (uint64_t k = 0; k < 20; ++k)
-        differs = differs || !near(windowProgress(params, 0.5F, 0.F, k * 977, nullptr), windowProgress(params, 0.5F, 0.F, 1, nullptr), 1e-3F);
-    CHECK(differs);
-    CHECK(jitterExponent(5, 0.F) == 1.F);
-    const float e = jitterExponent(5, 1.F);
-    CHECK(e > 0.4F && e < 2.4F);
-}
-
-static void testOvershoot() {
-    CHECK(overshootCurve(0.F, 1.F) == 0.F);
-    CHECK(near(overshootCurve(1.F, 1.F), 1.F));
-    CHECK(overshootCurve(0.5F, 0.F) == 0.5F);
-    float peak = 0.F;
-    for (int i = 0; i <= 100; ++i)
-        peak = std::max(peak, overshootCurve(i / 100.F, 1.F));
-    CHECK(peak > 1.05F && peak < 1.5F);
-    SParams params{.style = EStyle::SPRING, .spread = 0.F, .overshoot = 0.8F};
-    CHECK(windowProgress(params, 0.8F, 0.F, 1, nullptr) > 1.F);
-}
-
-static void testTilt() {
-    CHECK(tiltAngle(0.F, 10.F, 1.F) == 0.F);
-    CHECK(std::fabs(tiltAngle(1.F, 10.F, 1.F)) < 1e-5F);
-    CHECK(near(tiltAngle(0.5F, 10.F, 1.F), 10.F * 3.14159265F / 180.F, 1e-4F));
-    CHECK(near(tiltAngle(0.5F, 10.F, -1.F), -tiltAngle(0.5F, 10.F, 1.F)));
-    CHECK(tiltAngle(0.5F, 0.F, 1.F) == 0.F);
-    CHECK(near(tiltAngle(0.5F, 90.F, 1.F), 30.F * 3.14159265F / 180.F, 1e-4F)); // capped
-    CHECK(tiltAngle(0.5F, NAN, 1.F) == 0.F);
-    CHECK(std::fabs(tiltAngle(1.3F, 10.F, 1.F)) < 1e-5F); // overshoot clamps to straight
+    CHECK(near(windowProgress(params, 0.5F, 0.F, nullptr), 0.5F));
 }
 
 static void testDelays() {
@@ -155,40 +127,36 @@ static void testDelays() {
 
     auto delays = computeDelays(params, samples, {0.F, 0.F}, false);
     CHECK(delays.size() == samples.size());
-    CHECK(delays[0] == 0.F);               // at the origin
-    CHECK(near(delays.back(), 1.F));        // farthest
-    CHECK(delays[1] < delays[2]);           // farther = later
+    CHECK(delays[0] == 0.F);
+    CHECK(near(delays.back(), 1.F));
+    CHECK(delays[1] < delays[2]);
 
     params.style = EStyle::CONVERGE;
     delays       = computeDelays(params, samples, {0.F, 0.F}, false);
-    CHECK(near(delays[0], 1.F));
-    CHECK(near(delays.back(), 0.F));
+    CHECK(near(delays[0], 1.F) && near(delays.back(), 0.F));
 
     params.style = EStyle::SWEEP;
     delays       = computeDelays(params, samples, {}, false);
-    CHECK(delays[0] == 0.F && near(delays.back(), 1.F));
     bool ordered = true;
     for (size_t i = 1; i < delays.size(); ++i)
         ordered = ordered && delays[i] > delays[i - 1];
-    CHECK(ordered);
+    CHECK(ordered && delays[0] == 0.F && near(delays.back(), 1.F));
     params.reverse = true;
     delays         = computeDelays(params, samples, {}, false);
     CHECK(near(delays[0], 1.F) && near(delays.back(), 0.F));
     params.reverse = false;
 
-    params.style = EStyle::RANDOM;
+    params.style  = EStyle::RANDOM;
     const auto r1 = computeDelays(params, samples, {}, false);
-    const auto r2 = computeDelays(params, samples, {}, false);
-    CHECK(r1 == r2);
+    CHECK(r1 == computeDelays(params, samples, {}, false));
     bool inRange = true;
     for (auto d : r1)
         inRange = inRange && d >= 0.F && d <= 1.F;
     CHECK(inRange);
 
-    params.style = EStyle::JITTER;
-    delays       = computeDelays(params, samples, {}, false);
+    params.style = EStyle::NONE;
     bool zeros   = true;
-    for (auto d : delays)
+    for (auto d : computeDelays(params, samples, {}, true))
         zeros = zeros && d == 0.F;
     CHECK(zeros);
 }
@@ -202,24 +170,13 @@ static void testRewindOnClose() {
     for (size_t i = 0; i < open.size(); ++i)
         ok = ok && near(open[i] + close[i], 1.F);
     CHECK(ok);
-
     params.rewindOnClose = false;
-    close                = computeDelays(params, samples, {0.F, 0.F}, true);
-    CHECK(open == close);
-
-    // Styles without delays stay delay-free when closing.
-    params = {.style = EStyle::JITTER, .rewindOnClose = true};
-    close  = computeDelays(params, samples, {}, true);
-    bool zeros = true;
-    for (auto d : close)
-        zeros = zeros && d == 0.F;
-    CHECK(zeros);
+    CHECK(open == computeDelays(params, samples, {0.F, 0.F}, true));
 }
 
 static void testDegenerate() {
     SParams params{.style = EStyle::RIPPLE};
     CHECK(computeDelays(params, {}, {}, false).empty());
-    // One window / all at the origin: no NaNs.
     std::vector<SWindowSample> one = {{.center = {5.F, 5.F}, .key = 1}};
     CHECK(computeDelays(params, one, {5.F, 5.F}, false)[0] == 0.F);
     params.style = EStyle::SWEEP;
@@ -230,18 +187,50 @@ static void testDegenerate() {
     CHECK(d[0] >= 0.F && d[0] <= 1.F && d[1] >= 0.F && d[1] <= 1.F);
 }
 
+static void testTilt() {
+    constexpr float RAD = 3.14159265F / 180.F;
+    CHECK(tiltAngle(0.F, 20.F) == 0.F);
+    CHECK(std::fabs(tiltAngle(1.F, 20.F)) < 1e-5F);
+    CHECK(near(tiltAngle(0.5F, 20.F), 20.F * RAD, 1e-4F));
+    CHECK(tiltAngle(0.5F, 0.F) == 0.F); // default: off
+    CHECK(near(tiltAngle(0.5F, -20.F), -20.F * RAD, 1e-4F)); // negative leans the other way
+    CHECK(near(tiltAngle(0.5F, -90.F), -45.F * RAD, 1e-4F)); // capped both ways
+    CHECK(tiltAngle(0.5F, NAN) == 0.F);
+    CHECK(near(tiltAngle(0.5F, 90.F), 45.F * RAD, 1e-4F)); // capped
+    CHECK(std::fabs(tiltAngle(1.3F, 20.F)) < 1e-5F);      // overshoot clamps to flat
+
+    // axis is a unit vector perpendicular to the travel
+    const auto A = tiltAxis(30.F, 40.F);
+    CHECK(near(A.x * A.x + A.y * A.y, 1.F, 1e-4F));
+    CHECK(near(A.x * 30.F + A.y * 40.F, 0.F, 1e-3F));
+    const auto R = tiltAxis(100.F, 0.F); // moving right: rotate about the vertical axis
+    CHECK(near(R.x, 0.F) && near(std::fabs(R.y), 1.F));
+    const auto F = tiltAxis(1.F, 1.F); // barely moving: lean back about X
+    CHECK(F.x == 1.F && F.y == 0.F);
+    const auto N = tiltAxis(NAN, 1.F);
+    CHECK(N.x == 1.F && N.y == 0.F);
+}
+
+static void testSpeed() {
+    CHECK(std::fabs(scaledDuration(5.F, 0.F) - 5.F) < 1e-5F);    // 0 = same as windowsMove
+    CHECK(std::fabs(scaledDuration(5.F, 1.F) - 2.5F) < 1e-5F);   // faster = shorter
+    CHECK(std::fabs(scaledDuration(5.F, -1.F) - 10.F) < 1e-5F);  // slower = longer
+    CHECK(std::fabs(scaledDuration(5.F, 99.F) - scaledDuration(5.F, MAX_SPEED)) < 1e-5F);
+    CHECK(std::fabs(scaledDuration(5.F, -99.F) - scaledDuration(5.F, -MAX_SPEED)) < 1e-5F);
+    CHECK(std::fabs(scaledDuration(5.F, NAN) - 5.F) < 1e-5F);
+}
+
 int main() {
     testParse();
+    testEasings();
     testHash();
-    testEndpoints();
-    testMonotonicWithoutOvershoot();
+    testEndpointsAndMonotonic();
     testStagger();
-    testJitterHasNoDeadTime();
-    testOvershoot();
-    testTilt();
     testDelays();
     testRewindOnClose();
     testDegenerate();
+    testTilt();
+    testSpeed();
 
     if (g_failures) {
         std::printf("%d motion test(s) failed\n", g_failures);

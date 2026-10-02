@@ -120,5 +120,7 @@ std::optional<::Config::CGradientValueData> getShadowColor(PHLMONITOR monitor);
 Motion::SParams getMotionParams(PHLMONITOR monitor);
 bool         getMotionOriginCursor(PHLMONITOR monitor);
 bool         getMotionOnGesture(PHLMONITOR monitor);
+float        getMotionSpeed(PHLMONITOR monitor);
+std::string  getMotionEasing(PHLMONITOR monitor);
 
 }

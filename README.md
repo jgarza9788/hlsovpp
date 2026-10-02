@@ -40,13 +40,13 @@ Without Omarchy: `hyprpm add https://github.com/jgarza9788/hlsovpp && hyprpm ena
 ```lua
 hl.config({ plugin = { scrolloverview = {
   motion = {
-    style = "ripple",       -- none ripple converge sweep random jitter scatter spring
+    style = "ripple",       -- none ripple converge sweep random
     spread = 0.35,          -- share of the animation spent staggering, 0 - 0.9
-    origin = "focus",       -- ripple/converge/spring: "focus" or "cursor"
+    origin = "focus",       -- ripple/converge: "focus" or "cursor"
     direction = "forward",  -- sweep: "forward" or "reverse"
-    jitter = 0.5,           -- jitter/scatter: per-window curve variation, 0 - 1
-    overshoot = 0.4,        -- spring: how far past the spot windows travel, 0 - 1
-    tilt = 8,               -- degrees windows tilt mid-flight (0 = off), 0 - 30
+    easing = "follow",      -- follow (windowsMove's bezier), smooth, snappy, bouncy
+    speed = 0,              -- vs windowsMove: 0 same, +1 2x faster, -1 2x slower, -4 - 4
+    tilt = 0,               -- degrees of 3D lean mid-flight: 0 off, + into the move, - away, -45 - 45
     rewind_on_close = true, -- closing plays the opening order backwards
     on_gesture = false,     -- also stagger while a touchpad swipe drives it
   },
@@ -60,17 +60,15 @@ hl.config({ plugin = { scrolloverview = {
 | `converge` | farthest first, a wave inward |
 | `sweep` | one after another in layout order |
 | `random` | each window gets its own stable random delay |
-| `jitter` | all start together, each with a different easing curve |
-| `scatter` | random delays and different curves |
-| `spring` | ripple, and windows overshoot their spot and settle back |
 
-**Tilt** works with every style: a window leans while it travels and
-straightens as it lands (left of the origin one way, right of it the other).
-While tilted, its border, shadow and corner rounding fade out, since those are
-drawn straight, and come back as it lands.
+**Tilt** works with every style: a window leans in 3D while it travels and
+lands flat. Positive values lean into the move, negative values lean away. It's drawn flat and then projected in
+perspective, so its border, shadow and decorations tilt with it.
 
-Each window replays the overview animation (the `windowsMove` animation's
-curve and speed) on its own timeline, shifted by its delay. Every window still
+**Easing** and **speed** set the overview's own open/close curve and duration;
+`follow` and speed `0` use the `windowsMove` animation's. For a landing that overshoots a little, use `bouncy`.
+
+Each window replays the overview animation on its own timeline, shifted by its delay. Every window still
 starts where it is and ends exactly where upstream would put it, so the final
 layout, clicks and drags are unchanged. Reversing mid-animation stays smooth.
 Motion options also work per monitor via `hl.plugin.scrolloverview.configure`.

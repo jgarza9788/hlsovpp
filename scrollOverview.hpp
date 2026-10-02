@@ -95,7 +95,8 @@ class CScrollOverview : public IOverview {
     // hlsovpp: per-window motion (see Motion.hpp)
     void   updateMotion(PHLMONITOR monitor);
     float  motionScaleFor(const PHLWINDOW& window, float globalScale) const;
-    float  motionTiltFor(const PHLWINDOW& window, float* amount = nullptr) const;
+    // 3D tilt this frame: angle (radians, 0 = flat) and axis
+    float  motionTiltFor(const PHLWINDOW& window, Motion::SPoint* axis = nullptr) const;
     CBox   motionWindowBox(const PHLWINDOW& window, PHLMONITOR monitor, size_t workspaceIdx, size_t activeIdx, float windowScale, CBox* workspaceBox = nullptr) const;
     void   moveViewportWorkspace(bool up);
     void   trackpadSwipeLayout(const PHLWORKSPACE target, const double delta);
@@ -300,9 +301,8 @@ class CScrollOverview : public IOverview {
         float start = 1.F; // window scale when the current segment began
         float delay = 0.F;
         float value = 1.F; // window scale this frame
-        float sign  = 1.F; // tilt direction
-        float angle = 0.F; // tilt this frame (radians)
-        float tilt  = 0.F; // 0 straight .. 1 peak tilt
+        Motion::SPoint axis  = {1.F, 0.F}; // 3D tilt axis (screen plane, unit)
+        float          angle = 0.F;        // tilt this frame (radians)
     };
     struct SMotionState {
         bool                                    active = false;
@@ -315,6 +315,7 @@ class CScrollOverview : public IOverview {
     PHLANIMVAR<float>                workspaceInsertFadeProgress;
     SP<Hyprutils::Animation::SAnimationPropertyConfig> workspaceInsertFadeConfig;
     SP<Hyprutils::Animation::SAnimationPropertyConfig> workspaceRemoveFadeConfig;
+    SP<Hyprutils::Animation::SAnimationPropertyConfig> overviewAnimConfig; // hlsovpp: motion:speed / easing
     Time::steady_tp                  lastRealtimePreviewFrame = {};
     Time::steady_tp                  realtimePreviewTimerDue = {};
     wl_event_source*                 realtimePreviewTimer = nullptr;

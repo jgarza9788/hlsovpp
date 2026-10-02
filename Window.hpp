@@ -20,8 +20,8 @@ struct SRenderParams {
     bool                  selected             = false;
     bool                  dragged              = false;
     PHLWINDOW             pseudoFocusWindow;
-    float                 tilt                 = 0.F; // hlsovpp: in-flight rotation (radians)
-    float                 tiltAmount           = 0.F; // hlsovpp: 0 straight .. 1 peak tilt
+    float                 tilt                 = 0.F; // hlsovpp: in-flight 3D tilt (radians), 0 = flat
+    Vector2D              tiltAxis             = {1.0, 0.0}; // hlsovpp: tilt axis (unit, screen plane)
 };
 
 void renderOverviewWindow(const SRenderParams& params);

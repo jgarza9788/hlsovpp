@@ -4,7 +4,7 @@
 //
 // Upstream drives every window with one shared scale animation, so they all
 // move in lockstep. Here each window replays the same animation curve, but
-// time-shifted by its own delay and optionally reshaped (jitter, overshoot).
+// time-shifted by its own delay, and can lean (3D tilt) while it travels.
 //
 // Pure logic with no Hyprland dependencies so it can be unit tested.
 
@@ -23,9 +23,6 @@ enum class EStyle : uint8_t {
     CONVERGE, // farthest from the origin moves first, inward wave
     SWEEP,    // one after another in layout order
     RANDOM,   // stable random delay per window
-    JITTER,   // same start, per-window easing curve
-    SCATTER,  // random delay + per-window easing curve
-    SPRING,   // ripple + overshoot that settles back
 };
 
 enum class EDelaySource : uint8_t {
@@ -39,17 +36,13 @@ enum class EDelaySource : uint8_t {
 std::optional<EStyle> parseStyle(std::string_view name);
 std::string_view      styleName(EStyle style);
 EDelaySource          delaySource(EStyle style);
-bool                  usesJitter(EStyle style);
-bool                  usesOvershoot(EStyle style);
 
 struct SParams {
     EStyle style         = EStyle::NONE;
     float  spread        = 0.35F; // share of the animation used to stagger, [0, 0.9]
-    float  jitter        = 0.5F;  // per-window curve variation, [0, 1]
-    float  overshoot     = 0.4F;  // how far past the target a window travels, [0, 1]
     bool   reverse       = false; // sweep: reverse layout order
     bool   rewindOnClose = true;  // closing replays the opening order backwards
-    float  tilt          = 0.F;   // peak in-flight tilt in degrees, [0, 30]
+    float  tilt          = 0.F;   // peak in-flight 3D tilt in degrees, [-45, 45]; negative leans away
 };
 
 struct SPoint {
@@ -63,6 +56,22 @@ struct SWindowSample {
     uint64_t key   = 0;   // stable per-window identity (seeds random choices)
 };
 
+// ── easing ──────────────────────────────────────────────────────────────────
+// Named cubic beziers (CSS-style control points). "follow" is not in the
+// table: it means "use the windowsMove animation's own bezier".
+struct SEasing {
+    std::string_view name;
+    float            x1, y1, x2, y2;
+};
+
+std::span<const SEasing> easings();
+std::optional<SEasing>   findEasing(std::string_view name);
+bool                     isEasingName(std::string_view name); // table entry or "follow"
+// y for x on the curve (x solved numerically). For tests and fallbacks.
+float easingY(const SEasing& easing, float x);
+
+// ── delays and progress ─────────────────────────────────────────────────────
+
 // Uniform value in [0, 1) derived from key and salt. Deterministic.
 float hashUnit(uint64_t key, uint32_t salt);
 
@@ -75,19 +84,30 @@ float effectiveSpread(const SParams& params);
 // Window-local time in [0, 1] from the global animation time.
 float localTime(float percent, float delay, float spread);
 
-// Exponent applied to local time for jitter; 1 when jitter is off.
-float jitterExponent(uint64_t key, float jitter);
-
-// Back-out overshoot applied on top of an eased value; f(0)=0, f(1)=1.
-float overshootCurve(float value, float overshoot);
-
-// Tilt in radians for a window `progress` of the way along its own motion:
-// 0 at both ends, peaking half-way. `sign` (+1/-1) picks the direction.
-float tiltAngle(float progress, float tiltDegrees, float sign);
-
 // Fraction of the way from the window's start to the goal, given the global
-// animation time `percent` in [0, 1] and the animation's easing.
-// Always 0 at percent 0 and 1 at percent 1 (may exceed 1 mid-way with overshoot).
-float windowProgress(const SParams& params, float percent, float delay, uint64_t key, const std::function<float(float)>& ease);
+// animation time `percent` in [0, 1] and the animation's easing. Always 0 at
+// percent 0 and 1 at percent 1.
+float windowProgress(const SParams& params, float percent, float delay, const std::function<float(float)>& ease);
+
+// ── speed ───────────────────────────────────────────────────────────────────
+
+// motion:speed range: 0 keeps the base speed, +1 is twice as fast, -1 half.
+inline constexpr float MAX_SPEED = 4.F;
+
+// Animation duration (Hyprland speed units, 1 = 100 ms) for `speed` applied
+// to `baseDuration`. Clamped to +/-MAX_SPEED; NaN means unchanged.
+float scaledDuration(float baseDuration, float speed);
+
+// ── tilt ────────────────────────────────────────────────────────────────────
+
+// Tilt in radians `progress` of the way along a window's own motion: 0 at
+// both ends, peaking half-way. Positive leans into the move, negative away
+// from it; capped at +/-45. NaN means no tilt.
+float tiltAngle(float progress, float tiltDegrees);
+
+// Rotation axis (unit, in the screen plane) for a window travelling by
+// (dx, dy): perpendicular to the travel so the window leans into the move.
+// A window that barely moves sideways leans back around the X axis.
+SPoint tiltAxis(float dx, float dy, float minTravel = 4.F);
 
 }

@@ -6,7 +6,7 @@ name = "hlsovpp"
 authors = ["jgarza", "yayuuu"]
 
 [scrolloverview]
-description = "ScrollOverview (fork) with per-window motion: windows ripple, sweep or spring into the overview."
+description = "ScrollOverview (fork) with per-window motion: windows ripple, converge or sweep into the overview."
 authors = ["yayuuu", "jgarza"]
 output = "scrolloverview.so"
 build = [

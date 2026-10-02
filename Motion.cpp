@@ -10,24 +10,23 @@ namespace Motion {
 
 namespace {
 
-constexpr std::array<std::pair<std::string_view, EStyle>, 8> STYLES = {{
+constexpr std::array<std::pair<std::string_view, EStyle>, 5> STYLES = {{
     {"none", EStyle::NONE},
     {"ripple", EStyle::RIPPLE},
     {"converge", EStyle::CONVERGE},
     {"sweep", EStyle::SWEEP},
     {"random", EStyle::RANDOM},
-    {"jitter", EStyle::JITTER},
-    {"scatter", EStyle::SCATTER},
-    {"spring", EStyle::SPRING},
 }};
 
-constexpr uint32_t SALT_DELAY  = 0x9E3779B9U;
-constexpr uint32_t SALT_JITTER = 0x85EBCA6BU;
+constexpr std::array<SEasing, 3> EASINGS = {{
+    {"smooth", 0.42F, 0.F, 0.58F, 1.F},  // gentle start and stop (ease-in-out)
+    {"snappy", 0.16F, 1.F, 0.3F, 1.F},   // fast start, soft landing (expo-out)
+    {"bouncy", 0.34F, 1.56F, 0.64F, 1.F}, // small overshoot that settles (back-out)
+}};
 
-// Largest jitter exponent is 2^MAX_JITTER_OCTAVES (and smallest its inverse).
-constexpr float MAX_JITTER_OCTAVES = 1.25F;
-// Overshoot 1 maps to a back-ease constant of this (about 25% past target).
-constexpr float MAX_BACK_CONSTANT = 2.5F;
+constexpr uint32_t SALT_DELAY = 0x9E3779B9U;
+constexpr float    PI         = 3.14159265358979F;
+constexpr float    MAX_TILT   = 45.F;
 
 float clamp01(float value) {
     return std::isfinite(value) ? std::clamp(value, 0.F, 1.F) : 0.F;
@@ -40,6 +39,11 @@ uint64_t mix64(uint64_t x) { // splitmix64 finalizer
     x *= 0x94D049BB133111EBULL;
     x ^= x >> 31;
     return x;
+}
+
+float bezier1D(float a, float b, float t) { // control points 0, a, b, 1
+    const float U = 1.F - t;
+    return 3.F * U * U * t * a + 3.F * U * t * t * b + t * t * t;
 }
 
 }
@@ -62,24 +66,43 @@ std::string_view styleName(EStyle style) {
 
 EDelaySource delaySource(EStyle style) {
     switch (style) {
-        case EStyle::RIPPLE:
-        case EStyle::SPRING: return EDelaySource::DISTANCE;
+        case EStyle::RIPPLE: return EDelaySource::DISTANCE;
         case EStyle::CONVERGE: return EDelaySource::INVERSE_DISTANCE;
         case EStyle::SWEEP: return EDelaySource::ORDER;
-        case EStyle::RANDOM:
-        case EStyle::SCATTER: return EDelaySource::RANDOM;
-        case EStyle::NONE:
-        case EStyle::JITTER: return EDelaySource::NONE;
+        case EStyle::RANDOM: return EDelaySource::RANDOM;
+        case EStyle::NONE: return EDelaySource::NONE;
     }
     return EDelaySource::NONE;
 }
 
-bool usesJitter(EStyle style) {
-    return style == EStyle::JITTER || style == EStyle::SCATTER;
+std::span<const SEasing> easings() {
+    return EASINGS;
 }
 
-bool usesOvershoot(EStyle style) {
-    return style == EStyle::SPRING;
+std::optional<SEasing> findEasing(std::string_view name) {
+    for (const auto& easing : EASINGS) {
+        if (easing.name == name)
+            return easing;
+    }
+    return std::nullopt;
+}
+
+bool isEasingName(std::string_view name) {
+    return name == "follow" || findEasing(name).has_value();
+}
+
+float easingY(const SEasing& easing, float x) {
+    x = clamp01(x);
+    // x(t) is monotonic for x1, x2 in [0, 1]: bisect for t.
+    float lo = 0.F, hi = 1.F, t = x;
+    for (int i = 0; i < 40; ++i) {
+        t = (lo + hi) * 0.5F;
+        if (bezier1D(easing.x1, easing.x2, t) < x)
+            lo = t;
+        else
+            hi = t;
+    }
+    return bezier1D(easing.y1, easing.y2, t);
 }
 
 float hashUnit(uint64_t key, uint32_t salt) {
@@ -157,53 +180,40 @@ float localTime(float percent, float delay, float spread) {
     return clamp01((percent - clamp01(delay) * spread) / (1.F - spread));
 }
 
-float jitterExponent(uint64_t key, float jitter) {
-    jitter = clamp01(jitter);
-    if (jitter <= 0.F)
-        return 1.F;
-
-    const float SIGNED = 2.F * hashUnit(key, SALT_JITTER) - 1.F; // [-1, 1)
-    return std::exp2(SIGNED * jitter * MAX_JITTER_OCTAVES);
-}
-
-float overshootCurve(float value, float overshoot) {
-    overshoot = clamp01(overshoot);
-    if (overshoot <= 0.F)
-        return value;
-
-    const float C1 = overshoot * MAX_BACK_CONSTANT;
-    const float C3 = C1 + 1.F;
-    const float X  = value - 1.F;
-    return 1.F + C3 * X * X * X + C1 * X * X;
-}
-
-float tiltAngle(float progress, float tiltDegrees, float sign) {
-    if (!std::isfinite(tiltDegrees) || tiltDegrees <= 0.F)
-        return 0.F;
-
-    constexpr float PI = 3.14159265358979F;
-    const float     DEG = std::min(tiltDegrees, 30.F);
-    return std::sin(PI * clamp01(progress)) * DEG * (PI / 180.F) * (sign < 0.F ? -1.F : 1.F);
-}
-
-float windowProgress(const SParams& params, float percent, float delay, uint64_t key, const std::function<float(float)>& ease) {
-    if (params.style == EStyle::NONE)
-        return ease ? ease(clamp01(percent)) : clamp01(percent);
-
-    float t = localTime(percent, delay, effectiveSpread(params));
-    if (usesJitter(params.style))
-        t = std::pow(t, jitterExponent(key, params.jitter));
-
-    float value = ease ? ease(t) : t;
-    if (usesOvershoot(params.style))
-        value = overshootCurve(value, params.overshoot);
+float windowProgress(const SParams& params, float percent, float delay, const std::function<float(float)>& ease) {
+    const float T = localTime(percent, delay, effectiveSpread(params));
 
     // Pin the endpoints exactly so the final layout never drifts.
-    if (t <= 0.F)
+    if (T <= 0.F)
         return 0.F;
-    if (t >= 1.F)
+    if (T >= 1.F)
         return 1.F;
-    return std::isfinite(value) ? value : t;
+
+    const float VALUE = ease ? ease(T) : T;
+    return std::isfinite(VALUE) ? VALUE : T;
+}
+
+float scaledDuration(float baseDuration, float speed) {
+    if (!std::isfinite(speed))
+        return baseDuration;
+
+    return baseDuration * std::exp2(-std::clamp(speed, -MAX_SPEED, MAX_SPEED));
+}
+
+float tiltAngle(float progress, float tiltDegrees) {
+    if (!std::isfinite(tiltDegrees) || tiltDegrees == 0.F)
+        return 0.F;
+
+    return std::sin(PI * clamp01(progress)) * std::clamp(tiltDegrees, -MAX_TILT, MAX_TILT) * (PI / 180.F);
+}
+
+SPoint tiltAxis(float dx, float dy, float minTravel) {
+    const float LENGTH = std::sqrt(dx * dx + dy * dy);
+    if (!std::isfinite(LENGTH) || LENGTH < minTravel)
+        return {1.F, 0.F};
+
+    // perpendicular to the travel, in the screen plane
+    return {-dy / LENGTH, dx / LENGTH};
 }
 
 }

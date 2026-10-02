@@ -428,15 +428,14 @@ static void defineConfigValues() {
     addValue(makeShared<CStringValue>("plugin:scrolloverview:motion:style", "per-window motion style", Hyprlang::STRING{"ripple"}));
     addValue(makeShared<CFloatValue>("plugin:scrolloverview:motion:spread", "share of the animation used to stagger windows", 0.35F,
                                      SFloatValueOptions{.min = 0.F, .max = 0.9F}));
-    addValue(makeShared<CFloatValue>("plugin:scrolloverview:motion:jitter", "per-window easing variation (jitter, scatter)", 0.5F,
-                                     SFloatValueOptions{.min = 0.F, .max = 1.F}));
-    addValue(makeShared<CFloatValue>("plugin:scrolloverview:motion:overshoot", "overshoot past the target (spring)", 0.4F,
-                                     SFloatValueOptions{.min = 0.F, .max = 1.F}));
     addValue(makeShared<CStringValue>("plugin:scrolloverview:motion:origin", "ripple origin: focus or cursor", Hyprlang::STRING{"focus"}));
     addValue(makeShared<CStringValue>("plugin:scrolloverview:motion:direction", "sweep direction: forward or reverse", Hyprlang::STRING{"forward"}));
     addValue(makeShared<CBoolValue>("plugin:scrolloverview:motion:rewind_on_close", "closing replays the opening order backwards", true));
-    addValue(makeShared<CFloatValue>("plugin:scrolloverview:motion:tilt", "peak tilt (degrees) while a window is moving", 8.F,
-                                     SFloatValueOptions{.min = 0.F, .max = 30.F}));
+    addValue(makeShared<CFloatValue>("plugin:scrolloverview:motion:tilt", "peak 3D tilt (degrees) while a window is moving: 0 = off, positive leans into the move, negative away", 0.F,
+                                     SFloatValueOptions{.min = -45.F, .max = 45.F}));
+    addValue(makeShared<CFloatValue>("plugin:scrolloverview:motion:speed", "overview animation speed relative to windowsMove: 0 = same, +1 = 2x faster, -1 = 2x slower", 0.F,
+                                     SFloatValueOptions{.min = -Motion::MAX_SPEED, .max = Motion::MAX_SPEED}));
+    addValue(makeShared<CStringValue>("plugin:scrolloverview:motion:easing", "overview animation curve, follow = windowsMove's bezier", Hyprlang::STRING{"follow"}));
     addValue(makeShared<CBoolValue>("plugin:scrolloverview:motion:on_gesture", "apply motion while a swipe gesture drives the overview", false));
 }
 
@@ -573,16 +572,23 @@ Motion::SParams getMotionParams(PHLMONITOR monitor) {
     return {
         .style         = STYLE.value_or(Motion::EStyle::NONE),
         .spread        = std::clamp(getValue<float>("plugin:scrolloverview:motion:spread", monitor), 0.F, 0.9F),
-        .jitter        = std::clamp(getValue<float>("plugin:scrolloverview:motion:jitter", monitor), 0.F, 1.F),
-        .overshoot     = std::clamp(getValue<float>("plugin:scrolloverview:motion:overshoot", monitor), 0.F, 1.F),
         .reverse       = getValue<std::string>("plugin:scrolloverview:motion:direction", monitor) == "reverse",
         .rewindOnClose = getValue<bool>("plugin:scrolloverview:motion:rewind_on_close", monitor),
-        .tilt          = std::clamp(getValue<float>("plugin:scrolloverview:motion:tilt", monitor), 0.F, 30.F),
+        .tilt          = std::clamp(getValue<float>("plugin:scrolloverview:motion:tilt", monitor), -45.F, 45.F),
     };
 }
 
 bool getMotionOriginCursor(PHLMONITOR monitor) {
     return getValue<std::string>("plugin:scrolloverview:motion:origin", monitor) == "cursor";
+}
+
+float getMotionSpeed(PHLMONITOR monitor) {
+    return std::clamp(getValue<float>("plugin:scrolloverview:motion:speed", monitor), -Motion::MAX_SPEED, Motion::MAX_SPEED);
+}
+
+std::string getMotionEasing(PHLMONITOR monitor) {
+    const auto EASING = getValue<std::string>("plugin:scrolloverview:motion:easing", monitor);
+    return Motion::isEasingName(EASING) ? EASING : "follow";
 }
 
 bool getMotionOnGesture(PHLMONITOR monitor) {

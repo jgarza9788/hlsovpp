@@ -17,50 +17,53 @@ var STYLE_OPTIONS = [
   { value: "ripple", label: "Ripple" },
   { value: "converge", label: "Converge" },
   { value: "sweep", label: "Sweep" },
-  { value: "random", label: "Random" },
-  { value: "jitter", label: "Jitter" },
-  { value: "scatter", label: "Scatter" },
-  { value: "spring", label: "Spring" }
+  { value: "random", label: "Random" }
+]
+
+// "follow" = the windowsMove animation's own curve; the rest are cubic
+// beziers defined in Motion.cpp.
+var EASING_OPTIONS = [
+  { value: "follow", label: "Follow" },
+  { value: "smooth", label: "Smooth" },
+  { value: "snappy", label: "Snappy" },
+  { value: "bouncy", label: "Bouncy" }
 ]
 
 // Order here is the order rows appear in the panel and keys in the file.
 var SCHEMA = [
   { section: "Motion", key: "motion:style", type: "enum", label: "Motion style",
-    description: "How windows move when the overview opens and closes. None: all together (upstream). Ripple: nearest to the origin first. Converge: farthest first. Sweep: one after another in layout order. Random: scattered delays. Jitter: same start, different curves. Scatter: random + jitter. Spring: ripple with an overshoot.",
+    description: "Which windows move first when the overview opens and closes. None: all together (upstream). Ripple: nearest to the origin first. Converge: farthest first. Sweep: one after another in layout order. Random: scattered delays.",
     options: STYLE_OPTIONS, fallback: "ripple" },
   { section: "Motion", key: "motion:spread", type: "float", label: "Stagger",
     description: "How much of the animation is spent staggering windows. 0 = together.",
     min: 0, max: 0.9, step: 0.05, decimals: 2, fallback: 0.35,
-    needs: "motion:style", needsValue: ["ripple", "converge", "sweep", "random", "scatter", "spring"] },
+    needs: "motion:style", needsValue: ["ripple", "converge", "sweep", "random"] },
   { section: "Motion", key: "motion:origin", type: "enum", label: "Wave origin",
     description: "Where the ripple starts.",
     options: [
       { value: "focus", label: "Focused window" },
       { value: "cursor", label: "Cursor" }
-    ], fallback: "focus", needs: "motion:style", needsValue: ["ripple", "converge", "spring"] },
+    ], fallback: "focus", needs: "motion:style", needsValue: ["ripple", "converge"] },
   { section: "Motion", key: "motion:direction", type: "enum", label: "Sweep direction",
     description: "Forward: first workspace, left to right. Reverse: the other way.",
     options: [
       { value: "forward", label: "Forward" },
       { value: "reverse", label: "Reverse" }
     ], fallback: "forward", needs: "motion:style", needsValue: "sweep" },
-  { section: "Motion", key: "motion:jitter", type: "float", label: "Jitter",
-    description: "How different each window's easing curve is.",
-    min: 0, max: 1, step: 0.05, decimals: 2, fallback: 0.5,
-    needs: "motion:style", needsValue: ["jitter", "scatter"] },
-  { section: "Motion", key: "motion:overshoot", type: "float", label: "Overshoot",
-    description: "How far windows travel past their spot before settling.",
-    min: 0, max: 1, step: 0.05, decimals: 2, fallback: 0.4,
-    needs: "motion:style", needsValue: "spring" },
+  { section: "Motion", key: "motion:easing", type: "enum", label: "Easing",
+    description: "The feel of the open/close animation. Follow: your windowsMove curve. Smooth: gentle start and stop. Snappy: fast start, soft landing. Bouncy: overshoots a little and settles.",
+    options: EASING_OPTIONS, fallback: "follow" },
+  { section: "Motion", key: "motion:speed", type: "float", label: "Speed",
+    description: "Open/close speed relative to your windowsMove animation. 0 = same, positive = faster, negative = slower; each step of 1 doubles or halves it.",
+    min: -4, max: 4, step: 0.5, decimals: 1, fallback: 0 },
   { section: "Motion", key: "motion:tilt", type: "float", label: "Tilt",
-    description: "Windows tilt while they move and straighten as they land. Left of the focused window tilts one way, right of it the other. 0 = off.",
-    unit: "°", min: 0, max: 30, step: 1, decimals: 0, fallback: 8 },
+    description: "Windows lean in 3D while they move, then land flat. Positive leans into the move, negative leans away. Border and shadow tilt with them. 0 = off.",
+    unit: "°", min: -45, max: 45, step: 1, decimals: 0, fallback: 0 },
   { section: "Motion", key: "motion:rewind_on_close", type: "bool", label: "Rewind on close",
     description: "Closing plays the opening order backwards: the first window out is the last one home.",
-    fallback: true, needs: "motion:style", needsValue: ["ripple", "converge", "sweep", "random", "scatter", "spring"] },
+    fallback: true, needs: "motion:style", needsValue: ["ripple", "converge", "sweep", "random"] },
   { section: "Motion", key: "motion:on_gesture", type: "bool", label: "During gestures",
-    description: "Also stagger windows while a touchpad swipe drives the overview.", fallback: false,
-    needs: "motion:style", needsValue: ["ripple", "converge", "sweep", "random", "jitter", "scatter", "spring"] },
+    description: "Also stagger and tilt windows while a touchpad swipe drives the overview.", fallback: false },
 
   { section: "Layout", key: "scale", type: "float", label: "Scale",
     description: "How small workspaces get in the overview.",
@@ -349,6 +352,7 @@ if (typeof module !== "undefined") {
     SCHEMA: SCHEMA,
     SECTIONS: SECTIONS,
     STYLE_OPTIONS: STYLE_OPTIONS,
+    EASING_OPTIONS: EASING_OPTIONS,
     PREVIEW_COMMAND: PREVIEW_COMMAND,
     itemFor: itemFor,
     defaults: defaults,

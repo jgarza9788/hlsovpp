@@ -121,14 +121,26 @@ Item {
       height: Style.spacing.sm
     }
 
-    ButtonGroup {
+    // ButtonGroup is a single Row, so long pickers (Easing) ran off the
+    // panel. Same chips, wrapped onto as many lines as they need.
+    Flow {
       visible: root.wideEnum
-      options: root.wideEnum ? root.item.options : []
-      value: String(root.value)
-      foreground: root.foreground
-      accent: root.accent
-      focusable: false
-      onChanged: function(v) { root.committed(v) }
+      width: parent.width
+      spacing: Style.spacing.md
+
+      Repeater {
+        model: root.wideEnum ? root.item.options : []
+
+        delegate: Button {
+          required property var modelData
+          text: modelData.label !== undefined ? String(modelData.label) : String(modelData.value)
+          selected: String(modelData.value) === String(root.value)
+          bordered: true
+          foreground: root.foreground
+          accent: root.accent
+          onClicked: root.committed(modelData.value)
+        }
+      }
     }
   }
 

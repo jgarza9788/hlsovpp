@@ -26,6 +26,7 @@ using namespace Hyprutils::String;
 #include "Config.hpp"
 #include "PluginVersion.hpp"
 #include "scrollOverview.hpp"
+#include "TiltPassElement.hpp"
 #include "OverviewGesture.hpp"
 #include "OverviewOpen.hpp"
 
@@ -712,6 +713,7 @@ APICALL EXPORT void PLUGIN_EXIT() {
     g_pHyprRenderer->m_renderPass.removeAllOfType("CScrollOverviewPassElement");
 
     g_unloading = true;
+    TiltRender::destroy();
     g_nativeDragMouseMoveHook.reset();
     g_configReloadHook.reset();
     if (g_pScrollChangeWorkspaceHook)
