@@ -101,6 +101,7 @@ ok("eval is a single argv", cmd.length === 3 && cmd[0] === "hyprctl" && cmd[1] =
 ok("eval guards on the plugin", cmd[2].indexOf("if hl.plugin.scrolloverview then hl.config(") === 0)
 ok("eval carries nested values", cmd[2].indexOf('motion = { style = "spring",') !== -1 && cmd[2].indexOf("overshoot = 0.75,") !== -1)
 ok("eval is one line", cmd[2].indexOf("\n") === -1)
+ok("preview runs the dispatcher (not a bind factory)", M.PREVIEW_COMMAND[2].indexOf('._dispatch("overview", "open all")') !== -1)
 ok("pluginLoaded yes", M.pluginLoaded("Plugin scrolloverview by yayuuu:\n\tHandle: 1"))
 ok("pluginLoaded no", !M.pluginLoaded("Plugin hyprripple by jgarza:\n") && !M.pluginLoaded(""))
 

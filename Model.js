@@ -333,7 +333,8 @@ function evalCommand(settings) {
           "if hl.plugin." + PLUGIN + " then hl.config({ plugin = { " + PLUGIN + " = { " + body + " } } }) end"]
 }
 
-var PREVIEW_COMMAND = ["hyprctl", "eval", "if hl.plugin." + PLUGIN + " then hl.plugin." + PLUGIN + ".overview(\"open all\") end"]
+// Outside a keybind, overview(...) only builds a bind action; _dispatch runs it.
+var PREVIEW_COMMAND = ["hyprctl", "eval", "if hl.plugin." + PLUGIN + " then hl.plugin." + PLUGIN + "._dispatch(\"overview\", \"open all\") end"]
 
 // `hyprctl plugin list` -> is the overview plugin loaded?
 function pluginLoaded(text) {
