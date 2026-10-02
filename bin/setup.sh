@@ -265,7 +265,8 @@ do_install() {
   local other
   while IFS= read -r other; do
     [[ -n $other ]] && warn "$other also configures $PLUGIN; whichever loads last wins - consider moving those settings to hlsovpp.lua"
-  done < <(grep -l -E "hl\.plugin\.$PLUGIN[^.]|$PLUGIN = \{" "$HYPR_DIR"/*.lua 2>/dev/null | grep -v -E "/hlsovpp\.lua$" || true)
+  # (code before any "--" comment only)
+  done < <(grep -l -E "^([^-]|-[^-])*(hl\.plugin\.$PLUGIN[^.]|$PLUGIN = \{)" "$HYPR_DIR"/*.lua 2>/dev/null | grep -v -E "/hlsovpp\.lua$" || true)
 
   if (( ! NO_MENU )); then
     step "Omarchy menu entries"

@@ -86,6 +86,9 @@ out=$("$ROOT/install" 2>&1)
 grep -q "looknfeel.lua also configures" <<<"$out"; ok "warns about another file configuring the plugin" $?
 ! grep -q "bindings.lua also configures" <<<"$out"; ok "a bind that only calls the plugin isn't a conflict" $?
 grep -q 'scale = 0.2' "$H/looknfeel.lua"; ok "other config files are never edited" $?
+sed -i 's/^/-- /' "$H/looknfeel.lua"
+out=$("$ROOT/install" 2>&1)
+! grep -q "also configures" <<<"$out"; ok "commented-out config isn't a conflict" $?
 
 echo 'mine = true' > "$H/hlsovpp.lua"; run_i
 grep -q 'mine = true' "$H/hlsovpp.lua"; ok "existing settings kept" $?
