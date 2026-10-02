@@ -92,6 +92,10 @@ ScrollOverview is an overview plugin like niri.
 
 https://github.com/user-attachments/assets/e5eb1ad2-79bc-492a-82cd-02cd8b960d3e
 
+hlsovpp demo (motion styles, tilt, easing, speed):
+
+[![hlsovpp demo](https://img.youtube.com/vi/YDBHzOLCQoA/maxresdefault.jpg)](https://youtu.be/YDBHzOLCQoA)
+
 ### Installation
 
 ### Using Hyprpm (recommended)
