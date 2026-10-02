@@ -1,0 +1,3 @@
+#!/bin/bash
+# Completely remove hlsovpp (asks first). See ./uninstall --help
+exec "$(dirname "${BASH_SOURCE[0]}")/bin/setup.sh" uninstall "$@"

@@ -4255,6 +4255,15 @@ void CScrollOverview::renderWorkspaceLive(PHLMONITOR monitor, size_t workspaceId
         if (dragActiveWindow && window == getOverviewWindowToShow(dragActiveWindow.lock()))
             return;
 
+        const auto WINDOWSCALE = motionScaleFor(window, renderScale);
+        if (WINDOWSCALE != renderScale) {
+            CBox       windowWorkspaceBox;
+            const auto windowBox = motionWindowBox(window, monitor, workspaceIdx, activeIdx, WINDOWSCALE, &windowWorkspaceBox);
+            if (overviewBoxIntersectsMonitor(windowBox, monitor))
+                renderWindowLive(monitor, window, windowBox, WINDOWSCALE, now, &windowWorkspaceBox);
+            return;
+        }
+
         const auto windowBox = getOverviewWindowBox(window, monitor, renderScale, viewOffset->value(), WORKSPACEOFFSET, layout);
         if (!overviewBoxIntersectsMonitor(windowBox, monitor))
             return;
@@ -4368,7 +4377,9 @@ bool CScrollOverview::hasVisiblePrecomputedBlurWindow(PHLMONITOR monitor, size_t
             if (window == DRAGGEDWINDOW || !OverviewWindow::shouldUseBlurFramebuffer(window))
                 return false;
 
-            const auto windowBox = getOverviewWindowBox(window, monitor, renderScale, viewOffset->value(), WORKSPACEOFFSET, layout);
+            const auto WINDOWSCALE = motionScaleFor(window, renderScale);
+            const auto windowBox   = WINDOWSCALE != renderScale ? motionWindowBox(window, monitor, workspaceIdx, activeIdx, WINDOWSCALE) :
+                                                                  getOverviewWindowBox(window, monitor, renderScale, viewOffset->value(), WORKSPACEOFFSET, layout);
             return overviewBoxIntersectsMonitor(windowBox, monitor);
         };
 
@@ -4396,7 +4407,9 @@ void CScrollOverview::renderPinnedFloatingWindows(PHLMONITOR monitor, float over
         return;
 
     const auto TARGETOVERVIEWSCALE = ScrollOverview::Config::getScale(pMonitor.lock());
-    const auto ANIMATIONPROGRESS   = (1.F - TARGETOVERVIEWSCALE) > 0.001F ? (1.F - overviewScale) / (1.F - TARGETOVERVIEWSCALE) : 1.F;
+    const auto progressForScale    = [TARGETOVERVIEWSCALE](float windowScale) {
+        return (1.F - TARGETOVERVIEWSCALE) > 0.001F ? (1.F - windowScale) / (1.F - TARGETOVERVIEWSCALE) : 1.F;
+    };
 
     for (const auto& windowRef : pinnedFloatingWindows) {
         const auto window = getOverviewWindowToShow(windowRef.lock());
@@ -4409,13 +4422,149 @@ void CScrollOverview::renderPinnedFloatingWindows(PHLMONITOR monitor, float over
             continue;
 
         float renderScale = 1.F;
-        CBox  windowBox   = getPinnedFloatingOverviewWindowBox(monitor, window, TARGETOVERVIEWSCALE, ANIMATIONPROGRESS, &renderScale);
+        CBox  windowBox   = getPinnedFloatingOverviewWindowBox(monitor, window, TARGETOVERVIEWSCALE, progressForScale(motionScaleFor(window, overviewScale)), &renderScale);
 
         if (!overviewBoxIntersectsMonitor(windowBox, monitor))
             continue;
 
         renderWindowLive(monitor, window, windowBox, renderScale, now);
     }
+}
+
+// hlsovpp: per-window motion. Each window replays the overview's scale
+// animation on its own timeline (see Motion.hpp). A "segment" is one scale
+// animation (begun -> goal); every window keeps the scale it had when the
+// segment began, so reversing mid-animation stays continuous.
+static uintptr_t motionKey(const PHLWINDOW& window) {
+    return reinterpret_cast<uintptr_t>(window.get());
+}
+
+void CScrollOverview::updateMotion(PHLMONITOR monitor) {
+    const auto stop = [this] {
+        motion.active = false;
+        motion.tracks.clear();
+    };
+
+    if (!monitor)
+        return stop();
+
+    const auto PARAMS    = ScrollOverview::Config::getMotionParams(monitor);
+    const bool SWIPING   = m_isSwiping && ScrollOverview::Config::getMotionOnGesture(monitor);
+    const bool ANIMATING = !m_isSwiping && scale->isBeingAnimated();
+    if (PARAMS.style == Motion::EStyle::NONE || (!SWIPING && !ANIMATING))
+        return stop();
+
+    const float TARGET = ScrollOverview::Config::getScale(monitor);
+    const float FROM   = SWIPING ? (closing ? TARGET : 1.F) : scale->begun();
+    const float TO     = SWIPING ? (closing ? 1.F : TARGET) : scale->goal();
+    if (std::abs(TO - FROM) < 1e-4F)
+        return stop();
+
+    if (!motion.active || std::abs(FROM - motion.from) > 1e-5F || std::abs(TO - motion.to) > 1e-5F) {
+        const auto ACTIVEIDX = activeWorkspaceIndex();
+        const auto PITCH     = getWorkspaceRenderedPitch(monitor, TARGET, layout);
+        const auto VIEW      = viewOffset->goal();
+
+        std::vector<PHLWINDOW>             windows;
+        std::vector<Motion::SWindowSample> samples;
+        const auto addSample = [&](const PHLWINDOW& window, const CBox& finalBox, size_t workspaceIdx) {
+            const auto CENTER = finalBox.middle();
+            windows.push_back(window);
+            samples.push_back({
+                .center = {sc<float>(CENTER.x), sc<float>(CENTER.y)},
+                .order  = sc<double>(workspaceIdx) * 1e12 + std::round(CENTER.x) * 1e5 + CENTER.y,
+                .key    = motionKey(window),
+            });
+        };
+
+        for (size_t workspaceIdx = 0; workspaceIdx < images.size(); ++workspaceIdx) {
+            const auto& image = images[workspaceIdx];
+            if (!image || !image->pWorkspace)
+                continue;
+
+            const auto OFFSET = workspaceOverviewOffset(workspaceIdx, ACTIVEIDX, PITCH);
+            for (const auto& windowRef : image->windows) {
+                const auto window = getOverviewWindowToShow(windowRef.lock());
+                if (shouldShowOverviewWindow(window))
+                    addSample(window, getOverviewWindowBox(window, monitor, TARGET, VIEW, OFFSET, layout), workspaceIdx);
+            }
+        }
+
+        for (const auto& windowRef : pinnedFloatingWindows) {
+            const auto window = getOverviewWindowToShow(windowRef.lock());
+            if (!shouldShowPinnedFloatingOverviewWindow(window))
+                continue;
+            float renderScale = 1.F;
+            addSample(window, getPinnedFloatingOverviewWindowBox(monitor, window, TARGET, 1.F, &renderScale), ACTIVEIDX);
+        }
+
+        Motion::SPoint origin = {sc<float>(monitor->m_size.x * monitor->m_scale / 2.0), sc<float>(monitor->m_size.y * monitor->m_scale / 2.0)};
+        if (ScrollOverview::Config::getMotionOriginCursor(monitor)) {
+            const auto MOUSE = getOverviewMousePosLocal(monitor);
+            origin           = {sc<float>(MOUSE.x), sc<float>(MOUSE.y)};
+        } else if (const auto FOCUSED = getOverviewWindowToShow(Desktop::focusState()->window())) {
+            for (size_t i = 0; i < windows.size(); ++i) {
+                if (windows[i] == FOCUSED) {
+                    origin = samples[i].center;
+                    break;
+                }
+            }
+        }
+
+        const auto DELAYS = Motion::computeDelays(PARAMS, samples, origin, TO > FROM);
+
+        std::unordered_map<uintptr_t, SMotionTrack> tracks;
+        for (size_t i = 0; i < windows.size(); ++i) {
+            const auto KEY      = samples[i].key;
+            const auto PREVIOUS = motion.active ? motion.tracks.find(KEY) : motion.tracks.end();
+            const auto START    = PREVIOUS != motion.tracks.end() ? PREVIOUS->second.value : FROM;
+            tracks[KEY]         = {.start = START, .delay = DELAYS[i], .value = START};
+        }
+
+        motion.tracks = std::move(tracks);
+        motion.from   = FROM;
+        motion.to     = TO;
+        motion.active = true;
+    }
+
+    // Global time and easing. Bezier animations: linear time + the configured
+    // bezier per window. Springs (and swipes): their eased value as the clock.
+    float                      percent = 0.F;
+    std::function<float(float)> ease;
+    if (SWIPING)
+        percent = (scale->value() - FROM) / (TO - FROM);
+    else if (scale->isSpringCurve())
+        percent = scale->getCurveValue();
+    else {
+        percent = scale->getPercent();
+        auto bezier = Animation::mgr()->getBezier(scale->getBezierName());
+        if (!bezier)
+            bezier = Animation::mgr()->getBezier("default");
+        if (bezier)
+            ease = [bezier](float t) { return bezier->getYForPoint(t); };
+    }
+    percent = std::isfinite(percent) ? std::clamp(percent, 0.F, 1.F) : 1.F;
+
+    for (auto& [key, track] : motion.tracks) {
+        const float PROGRESS = Motion::windowProgress(PARAMS, percent, track.delay, key, ease);
+        track.value          = std::clamp(track.start + (TO - track.start) * PROGRESS, 0.05F, 1.5F);
+    }
+}
+
+float CScrollOverview::motionScaleFor(const PHLWINDOW& window, float globalScale) const {
+    if (!motion.active || !window)
+        return globalScale;
+
+    const auto TRACK = motion.tracks.find(motionKey(window));
+    return TRACK == motion.tracks.end() ? globalScale : TRACK->second.value;
+}
+
+CBox CScrollOverview::motionWindowBox(const PHLWINDOW& window, PHLMONITOR monitor, size_t workspaceIdx, size_t activeIdx, float windowScale, CBox* workspaceBox) const {
+    const auto OFFSET = workspaceOverviewOffset(workspaceIdx, activeIdx, getWorkspaceRenderedPitch(monitor, windowScale, layout));
+    if (workspaceBox)
+        *workspaceBox = getOverviewWorkspaceBox(monitor, windowScale, viewOffset->value(), OFFSET, layout);
+
+    return getOverviewWindowBox(window, monitor, windowScale, viewOffset->value(), OFFSET, layout);
 }
 
 void CScrollOverview::renderWindowLive(PHLMONITOR monitor, PHLWINDOW window, const CBox& windowBox, float renderScale, const Time::steady_tp& now, const CBox* workspaceBox,
@@ -5337,6 +5486,8 @@ void CScrollOverview::render() {
     const bool PREVBLOCKSURFACEFEEDBACK       = g_pHyprRenderer->m_bBlockSurfaceFeedback;
     g_pHyprRenderer->m_bBlockSurfaceFeedback  = true;
     auto restoreSurfaceFeedback               = Hyprutils::Utils::CScopeGuard([PREVBLOCKSURFACEFEEDBACK] { g_pHyprRenderer->m_bBlockSurfaceFeedback = PREVBLOCKSURFACEFEEDBACK; });
+
+    updateMotion(MONITOR);
 
     const auto NOW       = Time::steadyNow();
     const auto ACTIVEIDX = activeWorkspaceIndex();

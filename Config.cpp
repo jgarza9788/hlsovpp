@@ -424,6 +424,18 @@ static void defineConfigValues() {
     addValue(makeShared<CIntValue>("plugin:scrolloverview:shadow:range", "workspace card shadow range", -1));
     addValue(makeShared<CIntValue>("plugin:scrolloverview:shadow:render_power", "workspace card shadow render power", -1));
     addValue(makeShared<CGradientValue>("plugin:scrolloverview:shadow:color", "workspace card shadow color", -1));
+    // hlsovpp: per-window motion during the open/close animation
+    addValue(makeShared<CStringValue>("plugin:scrolloverview:motion:style", "per-window motion style", Hyprlang::STRING{"ripple"}));
+    addValue(makeShared<CFloatValue>("plugin:scrolloverview:motion:spread", "share of the animation used to stagger windows", 0.35F,
+                                     SFloatValueOptions{.min = 0.F, .max = 0.9F}));
+    addValue(makeShared<CFloatValue>("plugin:scrolloverview:motion:jitter", "per-window easing variation (jitter, scatter)", 0.5F,
+                                     SFloatValueOptions{.min = 0.F, .max = 1.F}));
+    addValue(makeShared<CFloatValue>("plugin:scrolloverview:motion:overshoot", "overshoot past the target (spring)", 0.4F,
+                                     SFloatValueOptions{.min = 0.F, .max = 1.F}));
+    addValue(makeShared<CStringValue>("plugin:scrolloverview:motion:origin", "ripple origin: focus or cursor", Hyprlang::STRING{"focus"}));
+    addValue(makeShared<CStringValue>("plugin:scrolloverview:motion:direction", "sweep direction: forward or reverse", Hyprlang::STRING{"forward"}));
+    addValue(makeShared<CBoolValue>("plugin:scrolloverview:motion:rewind_on_close", "closing replays the opening order backwards", true));
+    addValue(makeShared<CBoolValue>("plugin:scrolloverview:motion:on_gesture", "apply motion while a swipe gesture drives the overview", false));
 }
 
 static void initializeMonitorConfig() {
@@ -551,6 +563,27 @@ std::optional<::Config::CGradientValueData> getShadowColor(PHLMONITOR monitor) {
         return std::nullopt;
 
     return getValue<::Config::CGradientValueData>(NAME, monitor);
+}
+
+Motion::SParams getMotionParams(PHLMONITOR monitor) {
+    const auto STYLE = Motion::parseStyle(getValue<std::string>("plugin:scrolloverview:motion:style", monitor));
+
+    return {
+        .style         = STYLE.value_or(Motion::EStyle::NONE),
+        .spread        = std::clamp(getValue<float>("plugin:scrolloverview:motion:spread", monitor), 0.F, 0.9F),
+        .jitter        = std::clamp(getValue<float>("plugin:scrolloverview:motion:jitter", monitor), 0.F, 1.F),
+        .overshoot     = std::clamp(getValue<float>("plugin:scrolloverview:motion:overshoot", monitor), 0.F, 1.F),
+        .reverse       = getValue<std::string>("plugin:scrolloverview:motion:direction", monitor) == "reverse",
+        .rewindOnClose = getValue<bool>("plugin:scrolloverview:motion:rewind_on_close", monitor),
+    };
+}
+
+bool getMotionOriginCursor(PHLMONITOR monitor) {
+    return getValue<std::string>("plugin:scrolloverview:motion:origin", monitor) == "cursor";
+}
+
+bool getMotionOnGesture(PHLMONITOR monitor) {
+    return getValue<bool>("plugin:scrolloverview:motion:on_gesture", monitor);
 }
 
 }

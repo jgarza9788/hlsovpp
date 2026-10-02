@@ -1,6 +1,7 @@
 #pragma once
 
 #include "globals.hpp"
+#include "Motion.hpp"
 
 #include <hyprland/src/config/ConfigManager.hpp>
 #include <hyprland/src/config/ConfigValue.hpp>
@@ -116,5 +117,8 @@ int          getShadowEnabled(PHLMONITOR monitor);
 int          getShadowRange(PHLMONITOR monitor);
 int          getShadowRenderPower(PHLMONITOR monitor);
 std::optional<::Config::CGradientValueData> getShadowColor(PHLMONITOR monitor);
+Motion::SParams getMotionParams(PHLMONITOR monitor);
+bool         getMotionOriginCursor(PHLMONITOR monitor);
+bool         getMotionOnGesture(PHLMONITOR monitor);
 
 }

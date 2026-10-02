@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "jgarza.hlsovpp",
+  "name": "Scroll Overview (hlsovpp)",
+  "version": "0.1.0",
+  "author": "jgarza (fork of yayuuu/hyprland-scroll-overview)",
+  "license": "BSD-3-Clause",
+  "description": "A fork of yayuuu's ScrollOverview: a niri-style zoomed-out overview of every workspace, drawn by Hyprland itself. This fork adds per-window motion, so windows ripple, sweep, scatter or spring into place instead of moving in lockstep. After adding, run ./install in the plugin folder to build the native plugin. Settings: Omarchy menu > Style > Scroll Overview.",
+  "kinds": [
+    "panel",
+    "service"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "panel": "Panel.qml",
+    "service": "Service.qml"
+  },
+  "homepage": "https://github.com/jgarza9788/hlsovpp"
+}

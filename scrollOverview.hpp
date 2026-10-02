@@ -92,6 +92,10 @@ class CScrollOverview : public IOverview {
                              bool dragged = false);
     void   renderDraggedWindow(PHLMONITOR monitor, size_t activeIdx, float workspacePitch, float renderScale, const Time::steady_tp& now);
     void   renderPinnedFloatingWindows(PHLMONITOR monitor, float overviewScale, const Time::steady_tp& now);
+    // hlsovpp: per-window motion (see Motion.hpp)
+    void   updateMotion(PHLMONITOR monitor);
+    float  motionScaleFor(const PHLWINDOW& window, float globalScale) const;
+    CBox   motionWindowBox(const PHLWINDOW& window, PHLMONITOR monitor, size_t workspaceIdx, size_t activeIdx, float windowScale, CBox* workspaceBox = nullptr) const;
     void   moveViewportWorkspace(bool up);
     void   trackpadSwipeLayout(const PHLWORKSPACE target, const double delta);
     void   trackpadSwipeWorkspace(const double delta);
@@ -290,6 +294,18 @@ class CScrollOverview : public IOverview {
     PHLWORKSPACE                     startedOn;
 
     PHLANIMVAR<float>                scale;
+
+    struct SMotionTrack {
+        float start = 1.F; // window scale when the current segment began
+        float delay = 0.F;
+        float value = 1.F; // window scale this frame
+    };
+    struct SMotionState {
+        bool                                    active = false;
+        float                                   from   = 0.F; // segment endpoints (global scale)
+        float                                   to     = 0.F;
+        std::unordered_map<uintptr_t, SMotionTrack> tracks;
+    } motion;
     PHLANIMVAR<Vector2D>             viewOffset;
     PHLANIMVAR<float>                workspaceInsertProgress;
     PHLANIMVAR<float>                workspaceInsertFadeProgress;
