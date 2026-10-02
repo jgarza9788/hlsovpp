@@ -435,6 +435,8 @@ static void defineConfigValues() {
     addValue(makeShared<CStringValue>("plugin:scrolloverview:motion:origin", "ripple origin: focus or cursor", Hyprlang::STRING{"focus"}));
     addValue(makeShared<CStringValue>("plugin:scrolloverview:motion:direction", "sweep direction: forward or reverse", Hyprlang::STRING{"forward"}));
     addValue(makeShared<CBoolValue>("plugin:scrolloverview:motion:rewind_on_close", "closing replays the opening order backwards", true));
+    addValue(makeShared<CFloatValue>("plugin:scrolloverview:motion:tilt", "peak tilt (degrees) while a window is moving", 8.F,
+                                     SFloatValueOptions{.min = 0.F, .max = 30.F}));
     addValue(makeShared<CBoolValue>("plugin:scrolloverview:motion:on_gesture", "apply motion while a swipe gesture drives the overview", false));
 }
 
@@ -575,6 +577,7 @@ Motion::SParams getMotionParams(PHLMONITOR monitor) {
         .overshoot     = std::clamp(getValue<float>("plugin:scrolloverview:motion:overshoot", monitor), 0.F, 1.F),
         .reverse       = getValue<std::string>("plugin:scrolloverview:motion:direction", monitor) == "reverse",
         .rewindOnClose = getValue<bool>("plugin:scrolloverview:motion:rewind_on_close", monitor),
+        .tilt          = std::clamp(getValue<float>("plugin:scrolloverview:motion:tilt", monitor), 0.F, 30.F),
     };
 }
 

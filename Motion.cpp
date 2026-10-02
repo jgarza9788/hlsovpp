@@ -177,6 +177,15 @@ float overshootCurve(float value, float overshoot) {
     return 1.F + C3 * X * X * X + C1 * X * X;
 }
 
+float tiltAngle(float progress, float tiltDegrees, float sign) {
+    if (!std::isfinite(tiltDegrees) || tiltDegrees <= 0.F)
+        return 0.F;
+
+    constexpr float PI = 3.14159265358979F;
+    const float     DEG = std::min(tiltDegrees, 30.F);
+    return std::sin(PI * clamp01(progress)) * DEG * (PI / 180.F) * (sign < 0.F ? -1.F : 1.F);
+}
+
 float windowProgress(const SParams& params, float percent, float delay, uint64_t key, const std::function<float(float)>& ease) {
     if (params.style == EStyle::NONE)
         return ease ? ease(clamp01(percent)) : clamp01(percent);

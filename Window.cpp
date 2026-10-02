@@ -227,17 +227,17 @@ struct SOverviewPseudoFocusState {
 };
 
 
-static void roundStandaloneWindowPassElements(const PHLWINDOW& window, PHLMONITOR monitor, float renderScale, size_t firstElement) {
+static void roundStandaloneWindowPassElements(const PHLWINDOW& window, PHLMONITOR monitor, float renderScale, size_t firstElement, float roundingScale = 1.F) {
     if (!window || !monitor)
         return;
 
     if (Fullscreen::controller()->isFullscreen(window))
         return;
 
-    const int   rounding      = sc<int>(std::round(window->rounding() * monitor->m_scale * renderScale));
+    const int   rounding      = sc<int>(std::round(window->rounding() * monitor->m_scale * renderScale * roundingScale));
     const float roundingPower = window->roundingPower();
 
-    if (rounding <= 0)
+    if (rounding <= 0 && roundingScale >= 1.F)
         return;
 
     auto& passElements = g_pHyprRenderer->m_renderPass.m_passElements;
@@ -250,7 +250,7 @@ static void roundStandaloneWindowPassElements(const PHLWINDOW& window, PHLMONITO
         if (!surfacePassElement || surfacePassElement->m_data.pWindow != window || surfacePassElement->m_data.popup)
             continue;
 
-        surfacePassElement->m_data.dontRound     = false;
+        surfacePassElement->m_data.dontRound     = rounding <= 0;
         surfacePassElement->m_data.rounding      = rounding;
         surfacePassElement->m_data.roundingPower = roundingPower;
     }
@@ -966,8 +966,15 @@ void renderOverviewWindow(const SRenderParams& params) {
     const bool                   fullscreen   = Fullscreen::controller()->isFullscreen(params.window);
     const SOverviewWindowMetrics metrics      = getOverviewWindowMetrics(params.monitor, params.window, params.renderScale);
 
-    if (!fullscreen)
-        renderOverviewWindowShadow(params.monitor, params.window, params.windowBox, metrics, params.selected);
+    // hlsovpp: the border, shadow and corner rounding are drawn straight
+    // (their shaders ignore rotation), so they fade out while a window is
+    // tilted and come back as it straightens.
+    const float            STRAIGHT    = 1.F - std::clamp(params.tiltAmount, 0.F, 1.F);
+    SOverviewWindowMetrics edgeMetrics = metrics;
+    edgeMetrics.targetOpacity *= STRAIGHT;
+
+    if (!fullscreen && edgeMetrics.targetOpacity > 0.01F)
+        renderOverviewWindowShadow(params.monitor, params.window, params.windowBox, edgeMetrics, params.selected);
 
     const auto underDecos =
         renderOverviewCustomDecorations(params.monitor, params.window, params.workspaceBox ? *params.workspaceBox : CBox{}, params.windowBox, metrics, DECORATION_LAYER_UNDER);
@@ -1003,12 +1010,21 @@ void renderOverviewWindow(const SRenderParams& params) {
 
     const size_t firstWindowPassElement = g_pHyprRenderer->m_renderPass.m_passElements.size();
     const bool   usePrecomputedBlur     = shouldUsePrecomputedBlur(params.window, params.monitor, params.workspaceBox, &params.windowBox, params.dragged);
+    // hlsovpp: tilt the window's own elements (each rotates about its centre)
+    const bool TILTED = std::abs(params.tilt) > 1e-4F;
+    if (TILTED) {
+        Render::SRenderModifData modif;
+        modif.modifs.emplace_back(Render::SRenderModifData::RMOD_TYPE_ROTATE, params.tilt);
+        g_pHyprRenderer->m_renderPass.add(makeUnique<CRendererHintsPassElement>(CRendererHintsPassElement::SData{.renderModif = modif}));
+    }
     g_pHyprRenderer->renderWindow(params.window, params.monitor, params.now, false, Render::RENDER_PASS_ALL, false, false);
+    if (TILTED)
+        g_pHyprRenderer->m_renderPass.add(makeUnique<CRendererHintsPassElement>(CRendererHintsPassElement::SData{.renderModif = Render::SRenderModifData{}}));
     const Vector2D targetWindowPosition = params.monitor->m_position + params.windowBox.pos() / params.monitor->m_scale;
     scaleOverviewChildSurfaceGeometry(params.window, targetWindowPosition, params.window->sizeAnimation()->value(), firstWindowPassElement);
     if (!usePrecomputedBlur)
         blockOverviewWindowBlurOptimization(params.window, firstWindowPassElement);
-    roundStandaloneWindowPassElements(params.window, params.monitor, params.renderScale, firstWindowPassElement);
+    roundStandaloneWindowPassElements(params.window, params.monitor, params.renderScale, firstWindowPassElement, STRAIGHT);
 
     renderOverviewCustomDecorations(params.monitor, params.window, params.workspaceBox ? *params.workspaceBox : CBox{}, params.windowBox, metrics, DECORATION_LAYER_OVER);
     renderOverviewCustomDecorations(params.monitor, params.window, params.workspaceBox ? *params.workspaceBox : CBox{}, params.windowBox, metrics, DECORATION_LAYER_OVERLAY);
@@ -1018,8 +1034,8 @@ void renderOverviewWindow(const SRenderParams& params) {
     if (!fullscreen)
         renderOverviewGroupTabTitles(params.monitor, params.window, params.windowBox, metrics, metrics.targetOpacity);
 
-    if (!fullscreen)
-        renderOverviewWindowBorder(params.monitor, params.window, params.windowBox, metrics, params.selected);
+    if (!fullscreen && edgeMetrics.targetOpacity > 0.01F)
+        renderOverviewWindowBorder(params.monitor, params.window, params.windowBox, edgeMetrics, params.selected);
 
     raiseWindowPopups(params.window, firstWindowPassElement);
     OverviewRender::flushPass(params.monitor);

@@ -19,6 +19,7 @@ if hl.plugin.scrolloverview then
       direction = "forward",
       jitter = 0.5,
       overshoot = 0.4,
+      tilt = 8,
       rewind_on_close = true,
       on_gesture = false,
     },

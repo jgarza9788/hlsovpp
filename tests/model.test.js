@@ -50,7 +50,7 @@ ok("ripple shows origin, hides jitter", motionRows(d).indexOf("motion:origin") !
 ok("sweep shows direction", motionRows(Object.assign({}, d, { "motion:style": "sweep" })).indexOf("motion:direction") !== -1)
 ok("spring shows overshoot", motionRows(Object.assign({}, d, { "motion:style": "spring" })).indexOf("motion:overshoot") !== -1)
 ok("jitter hides stagger (no delays)", motionRows(Object.assign({}, d, { "motion:style": "jitter" })).indexOf("motion:spread") === -1)
-ok("none shows only the style", motionRows(Object.assign({}, d, { "motion:style": "none" })).join() === "motion:style")
+ok("none shows only the style and tilt", motionRows(Object.assign({}, d, { "motion:style": "none" })).join() === "motion:style,motion:tilt")
 ok("shadow range needs shadow", M.rowsFor("Look", d).every(function(i) { return i.key !== "shadow:range" }))
 
 // ── nudge ────────────────────────────────────────────────────────────────────

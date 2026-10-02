@@ -46,6 +46,7 @@ hl.config({ plugin = { scrolloverview = {
     direction = "forward",  -- sweep: "forward" or "reverse"
     jitter = 0.5,           -- jitter/scatter: per-window curve variation, 0 - 1
     overshoot = 0.4,        -- spring: how far past the spot windows travel, 0 - 1
+    tilt = 8,               -- degrees windows tilt mid-flight (0 = off), 0 - 30
     rewind_on_close = true, -- closing plays the opening order backwards
     on_gesture = false,     -- also stagger while a touchpad swipe drives it
   },
@@ -62,6 +63,11 @@ hl.config({ plugin = { scrolloverview = {
 | `jitter` | all start together, each with a different easing curve |
 | `scatter` | random delays and different curves |
 | `spring` | ripple, and windows overshoot their spot and settle back |
+
+**Tilt** works with every style: a window leans while it travels and
+straightens as it lands (left of the origin one way, right of it the other).
+While tilted, its border, shadow and corner rounding fade out, since those are
+drawn straight, and come back as it lands.
 
 Each window replays the overview animation (the `windowsMove` animation's
 curve and speed) on its own timeline, shifted by its delay. Every window still

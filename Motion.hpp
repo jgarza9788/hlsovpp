@@ -49,6 +49,7 @@ struct SParams {
     float  overshoot     = 0.4F;  // how far past the target a window travels, [0, 1]
     bool   reverse       = false; // sweep: reverse layout order
     bool   rewindOnClose = true;  // closing replays the opening order backwards
+    float  tilt          = 0.F;   // peak in-flight tilt in degrees, [0, 30]
 };
 
 struct SPoint {
@@ -79,6 +80,10 @@ float jitterExponent(uint64_t key, float jitter);
 
 // Back-out overshoot applied on top of an eased value; f(0)=0, f(1)=1.
 float overshootCurve(float value, float overshoot);
+
+// Tilt in radians for a window `progress` of the way along its own motion:
+// 0 at both ends, peaking half-way. `sign` (+1/-1) picks the direction.
+float tiltAngle(float progress, float tiltDegrees, float sign);
 
 // Fraction of the way from the window's start to the goal, given the global
 // animation time `percent` in [0, 1] and the animation's easing.

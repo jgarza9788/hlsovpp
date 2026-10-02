@@ -138,6 +138,17 @@ static void testOvershoot() {
     CHECK(windowProgress(params, 0.8F, 0.F, 1, nullptr) > 1.F);
 }
 
+static void testTilt() {
+    CHECK(tiltAngle(0.F, 10.F, 1.F) == 0.F);
+    CHECK(std::fabs(tiltAngle(1.F, 10.F, 1.F)) < 1e-5F);
+    CHECK(near(tiltAngle(0.5F, 10.F, 1.F), 10.F * 3.14159265F / 180.F, 1e-4F));
+    CHECK(near(tiltAngle(0.5F, 10.F, -1.F), -tiltAngle(0.5F, 10.F, 1.F)));
+    CHECK(tiltAngle(0.5F, 0.F, 1.F) == 0.F);
+    CHECK(near(tiltAngle(0.5F, 90.F, 1.F), 30.F * 3.14159265F / 180.F, 1e-4F)); // capped
+    CHECK(tiltAngle(0.5F, NAN, 1.F) == 0.F);
+    CHECK(std::fabs(tiltAngle(1.3F, 10.F, 1.F)) < 1e-5F); // overshoot clamps to straight
+}
+
 static void testDelays() {
     const auto samples = grid();
     SParams    params{.style = EStyle::RIPPLE};
@@ -227,6 +238,7 @@ int main() {
     testStagger();
     testJitterHasNoDeadTime();
     testOvershoot();
+    testTilt();
     testDelays();
     testRewindOnClose();
     testDegenerate();

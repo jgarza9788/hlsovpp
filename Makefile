@@ -11,6 +11,17 @@ endif
 
 .PHONY: all clean test FORCE
 
+all: $(VERSION_HEADER)
+	$(CXX) -shared -fPIC $(EXTRA_FLAGS) -I.build main.cpp Config.cpp DropIndicator.cpp NativeDrag.cpp OverviewGesture.cpp OverviewManager.cpp OverviewPassElement.cpp OverviewRender.cpp Window.cpp Motion.cpp scrollOverview.cpp -o scrolloverview.so -g `pkg-config --cflags pixman-1 libdrm hyprland pangocairo libinput libudev wayland-server xkbcommon '$(LUA_PKG) >= 5.4'` -std=c++2b -Wno-narrowing
+
+$(VERSION_HEADER): FORCE $(VERSION_SCRIPT)
+	sh $(VERSION_SCRIPT) $@ .
+
+FORCE:
+
+clean:
+	rm -f ./scrolloverview.so $(VERSION_HEADER)
+
 # hlsovpp: Motion unit tests (no Hyprland needed) under ASan + UBSan, then the
 # panel model and installer tests. `grep -v` only hides PASS lines; pipefail
 # keeps a failing test failing.
@@ -24,14 +35,3 @@ test: .build/motion_test
 .build/motion_test: Motion.cpp Motion.hpp tests/motion_test.cpp
 	@mkdir -p .build
 	$(CXX) -std=c++23 -O1 -g -Wall -Wextra -fsanitize=address,undefined -fno-sanitize-recover=all Motion.cpp tests/motion_test.cpp -o $@
-
-all: $(VERSION_HEADER)
-	$(CXX) -shared -fPIC $(EXTRA_FLAGS) -I.build main.cpp Config.cpp DropIndicator.cpp NativeDrag.cpp OverviewGesture.cpp OverviewManager.cpp OverviewPassElement.cpp OverviewRender.cpp Window.cpp Motion.cpp scrollOverview.cpp -o scrolloverview.so -g `pkg-config --cflags pixman-1 libdrm hyprland pangocairo libinput libudev wayland-server xkbcommon '$(LUA_PKG) >= 5.4'` -std=c++2b -Wno-narrowing
-
-$(VERSION_HEADER): FORCE $(VERSION_SCRIPT)
-	sh $(VERSION_SCRIPT) $@ .
-
-FORCE:
-
-clean:
-	rm -f ./scrolloverview.so $(VERSION_HEADER)

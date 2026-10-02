@@ -4451,7 +4451,7 @@ void CScrollOverview::updateMotion(PHLMONITOR monitor) {
     const auto PARAMS    = ScrollOverview::Config::getMotionParams(monitor);
     const bool SWIPING   = m_isSwiping && ScrollOverview::Config::getMotionOnGesture(monitor);
     const bool ANIMATING = !m_isSwiping && scale->isBeingAnimated();
-    if (PARAMS.style == Motion::EStyle::NONE || (!SWIPING && !ANIMATING))
+    if ((PARAMS.style == Motion::EStyle::NONE && PARAMS.tilt <= 0.F) || (!SWIPING && !ANIMATING))
         return stop();
 
     const float TARGET = ScrollOverview::Config::getScale(monitor);
@@ -4518,7 +4518,11 @@ void CScrollOverview::updateMotion(PHLMONITOR monitor) {
             const auto KEY      = samples[i].key;
             const auto PREVIOUS = motion.active ? motion.tracks.find(KEY) : motion.tracks.end();
             const auto START    = PREVIOUS != motion.tracks.end() ? PREVIOUS->second.value : FROM;
-            tracks[KEY]         = {.start = START, .delay = DELAYS[i], .value = START};
+            // Windows left of the origin tilt one way, right of it the other
+            // (cards fanning out); one right on it picks a stable side.
+            const float DX   = samples[i].center.x - origin.x;
+            const float SIGN = std::abs(DX) > 1.F ? (DX < 0.F ? -1.F : 1.F) : (Motion::hashUnit(KEY, 3) < 0.5F ? -1.F : 1.F);
+            tracks[KEY]      = {.start = START, .delay = DELAYS[i], .value = START, .sign = SIGN};
         }
 
         motion.tracks = std::move(tracks);
@@ -4548,6 +4552,8 @@ void CScrollOverview::updateMotion(PHLMONITOR monitor) {
     for (auto& [key, track] : motion.tracks) {
         const float PROGRESS = Motion::windowProgress(PARAMS, percent, track.delay, key, ease);
         track.value          = std::clamp(track.start + (TO - track.start) * PROGRESS, 0.05F, 1.5F);
+        track.angle          = Motion::tiltAngle(PROGRESS, PARAMS.tilt, track.sign);
+        track.tilt           = PARAMS.tilt > 0.F ? std::sin(3.14159265F * std::clamp(PROGRESS, 0.F, 1.F)) : 0.F;
     }
 }
 
@@ -4557,6 +4563,20 @@ float CScrollOverview::motionScaleFor(const PHLWINDOW& window, float globalScale
 
     const auto TRACK = motion.tracks.find(motionKey(window));
     return TRACK == motion.tracks.end() ? globalScale : TRACK->second.value;
+}
+
+float CScrollOverview::motionTiltFor(const PHLWINDOW& window, float* amount) const {
+    if (amount)
+        *amount = 0.F;
+    if (!motion.active || !window)
+        return 0.F;
+
+    const auto TRACK = motion.tracks.find(motionKey(window));
+    if (TRACK == motion.tracks.end())
+        return 0.F;
+    if (amount)
+        *amount = TRACK->second.tilt;
+    return TRACK->second.angle;
 }
 
 CBox CScrollOverview::motionWindowBox(const PHLWINDOW& window, PHLMONITOR monitor, size_t workspaceIdx, size_t activeIdx, float windowScale, CBox* workspaceBox) const {
@@ -4590,6 +4610,11 @@ void CScrollOverview::renderWindowLive(PHLMONITOR monitor, PHLWINDOW window, con
     forceWindowVisible(window);
     forceWindowSurfaceVisibility(window);
 
+    float       TILTAMOUNT = 0.F;
+    const float TILT       = dragged ? 0.F : motionTiltFor(window, &TILTAMOUNT);
+    if (dragged)
+        TILTAMOUNT = 0.F;
+
     OverviewWindow::renderOverviewWindow({
         .monitor              = monitor,
         .window               = window,
@@ -4600,6 +4625,8 @@ void CScrollOverview::renderWindowLive(PHLMONITOR monitor, PHLWINDOW window, con
         .selected             = closeOnWindow == window,
         .dragged              = dragged,
         .pseudoFocusWindow    = PSEUDOFOCUSWINDOW,
+        .tilt                 = TILT,
+        .tiltAmount           = TILTAMOUNT,
     });
 }
 

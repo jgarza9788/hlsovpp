@@ -95,6 +95,7 @@ class CScrollOverview : public IOverview {
     // hlsovpp: per-window motion (see Motion.hpp)
     void   updateMotion(PHLMONITOR monitor);
     float  motionScaleFor(const PHLWINDOW& window, float globalScale) const;
+    float  motionTiltFor(const PHLWINDOW& window, float* amount = nullptr) const;
     CBox   motionWindowBox(const PHLWINDOW& window, PHLMONITOR monitor, size_t workspaceIdx, size_t activeIdx, float windowScale, CBox* workspaceBox = nullptr) const;
     void   moveViewportWorkspace(bool up);
     void   trackpadSwipeLayout(const PHLWORKSPACE target, const double delta);
@@ -299,6 +300,9 @@ class CScrollOverview : public IOverview {
         float start = 1.F; // window scale when the current segment began
         float delay = 0.F;
         float value = 1.F; // window scale this frame
+        float sign  = 1.F; // tilt direction
+        float angle = 0.F; // tilt this frame (radians)
+        float tilt  = 0.F; // 0 straight .. 1 peak tilt
     };
     struct SMotionState {
         bool                                    active = false;
