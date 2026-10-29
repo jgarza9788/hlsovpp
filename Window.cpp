@@ -836,7 +836,8 @@ static void renderOverviewLabel(PHLMONITOR monitor, const PHLWINDOW& window, con
     if (!monitor || !window || alpha <= 0.01F || !ScrollOverview::Config::getLabelsEnabled(monitor))
         return;
 
-    const auto tex = OverviewLabel::texture(window, sc<float>(monitor->m_scale), ScrollOverview::Config::getLabelFontSize(monitor), ScrollOverview::Config::getLabelBorder(monitor));
+    const auto STYLE = ScrollOverview::Config::getLabelStyle(monitor);
+    const auto tex   = OverviewLabel::texture(window, sc<float>(monitor->m_scale), ScrollOverview::Config::getLabelFontSize(monitor), STYLE);
     if (!tex || !tex->ok() || tex->m_size.x < 1 || tex->m_size.y < 1)
         return;
 
@@ -847,7 +848,12 @@ static void renderOverviewLabel(PHLMONITOR monitor, const PHLWINDOW& window, con
 
     CBox box = {0, 0, tex->m_size.x * FIT, tex->m_size.y * FIT};
     box.x    = windowBox.x + (windowBox.width - box.width) / 2.0;
-    box.y    = windowBox.y + windowBox.height - box.height - box.height * 0.5;
+    if (STYLE.position == "top")
+        box.y = windowBox.y + box.height * 0.5;
+    else if (STYLE.position == "center")
+        box.y = windowBox.y + (windowBox.height - box.height) / 2.0;
+    else
+        box.y = windowBox.y + windowBox.height - box.height - box.height * 0.5;
     box.round();
 
     CTexPassElement::SRenderData data;

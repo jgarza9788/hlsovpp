@@ -93,14 +93,36 @@ var SCHEMA = [
     ], fallback: 0 },
   { section: "Look", key: "blur", type: "bool", label: "Blur wallpaper",
     description: "Blur the main overview wallpaper (not the workspace ones).", fallback: false },
-  { section: "Look", key: "labels:enabled", type: "bool", label: "Window labels",
+  { section: "Labels", key: "labels:enabled", type: "bool", label: "Window labels",
     description: "Show each window's icon and title. They fade in as the windows move back and out as they come forward.", fallback: true },
-  { section: "Look", key: "labels:font_size", type: "int", label: "Label size",
+  { section: "Labels", key: "labels:font_size", type: "int", label: "Label size",
     description: "Font size of the window labels.", unit: "px",
     min: 6, max: 48, step: 1, fallback: 13, needs: "labels:enabled", needsValue: "true" },
-  // Lua only: kept in the schema so a panel save writes it back, but no row.
-  { section: "Look", key: "labels:border", type: "bool", label: "Label border", hidden: true,
-    description: "Outline the labels in the theme accent color.", fallback: false },
+  { section: "Labels", key: "labels:position", type: "enum", label: "Label position",
+    description: "Where the label sits on the window.",
+    options: [
+      { value: "bottom", label: "Bottom" },
+      { value: "center", label: "Center" },
+      { value: "top", label: "Top" }
+    ], fallback: "bottom", needs: "labels:enabled", needsValue: "true" },
+  { section: "Labels", key: "labels:icon", type: "bool", label: "Label icon",
+    description: "Show the app icon beside the title.", fallback: true, needs: "labels:enabled", needsValue: "true" },
+  { section: "Labels", key: "labels:radius", type: "float", label: "Label roundness",
+    description: "Corner roundness: 0 = square, 1 = pill.", min: 0, max: 1, step: 0.1, decimals: 2, fallback: 1, needs: "labels:enabled", needsValue: "true" },
+  // Colors are Lua only for now (no picker): hidden rows are kept so a panel save writes them back.
+  // Hex colors are "#rrggbb" or "accent" (the Omarchy theme accent).
+  { section: "Labels", key: "labels:background_color", type: "color", label: "Label background", hidden: true,
+    description: "Background color.", fallback: "#0d0d12" },
+  { section: "Labels", key: "labels:background_opacity", type: "float", label: "Label background opacity",
+    description: "Background opacity, 0 = transparent.", min: 0, max: 1, step: 0.05, decimals: 2, fallback: 0.72, needs: "labels:enabled", needsValue: "true" },
+  { section: "Labels", key: "labels:text_color", type: "color", label: "Label text", hidden: true,
+    description: "Title color.", fallback: "#ffffff" },
+  { section: "Labels", key: "labels:border_color", type: "color", label: "Label border color", hidden: true,
+    description: "Border color when border is on.", fallback: "accent" },
+  { section: "Labels", key: "labels:border", type: "bool", label: "Label border",
+    description: "Outline the labels (border_color picks the color).", fallback: false, needs: "labels:enabled", needsValue: "true" },
+  { section: "Labels", key: "labels:border_width", type: "int", label: "Label border width",
+    description: "Border thickness in px, 0 = scale with the font.", min: 0, max: 12, step: 1, fallback: 0, needs: "labels:border", needsValue: "true" },
   { section: "Look", key: "shadow:enabled", type: "bool", label: "Card shadow",
     description: "Draw a shadow around each workspace card.", fallback: false },
   { section: "Look", key: "shadow:range", type: "int", label: "Shadow range",
@@ -132,7 +154,7 @@ var SCHEMA = [
     min: 0, max: 1000, step: 10, fallback: 200 }
 ]
 
-var SECTIONS = ["Motion", "Layout", "Look", "Input"]
+var SECTIONS = ["Motion", "Layout", "Look", "Labels", "Input"]
 
 function itemFor(key) {
   for (var i = 0; i < SCHEMA.length; i++)
@@ -195,6 +217,14 @@ function coerce(key, raw) {
     for (var i = 0; i < item.options.length; i++)
       if (String(item.options[i].value) === String(raw)) return { ok: true, value: item.options[i].value }
     return { ok: false, error: key + " must be one of " + item.options.map(function(o) { return o.value }).join(", ") }
+  }
+
+  if (item.type === "color") {
+    var c = String(raw).trim().toLowerCase()
+    if (c === "accent") return { ok: true, value: "accent" }
+    var hex = c.match(/^#?([0-9a-f]{6})$/)
+    if (hex) return { ok: true, value: "#" + hex[1] }
+    return { ok: false, error: key + ' must be "#rrggbb" or "accent"' }
   }
 
   return { ok: false, error: "unsupported setting " + key }

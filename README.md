@@ -42,7 +42,15 @@ hl.config({ plugin = { scrolloverview = {
   labels = {
     enabled = true,         -- icon + title pill on each window
     font_size = 13,         -- 6 - 48
-    border = false,         -- outline the pill in the theme accent color (Lua only, not in the panel)
+    border = false,         -- outline the pill (Lua only, like everything below)
+    position = "bottom",    -- bottom center top
+    icon = true,            -- app icon beside the title
+    radius = 1,             -- 0 = square, 1 = pill
+    background_color = "#0d0d12",  -- "#rrggbb" or "accent" (the Omarchy theme color)
+    background_opacity = 0.72,     -- 0 - 1
+    text_color = "#ffffff",
+    border_color = "accent",
+    border_width = 0,       -- px, 0 = scales with font_size
   },
 } } })
 ```

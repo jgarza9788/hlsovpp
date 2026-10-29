@@ -123,6 +123,18 @@ bool         getMotionOnGesture(PHLMONITOR monitor);
 bool         getLabelsEnabled(PHLMONITOR monitor);
 int          getLabelFontSize(PHLMONITOR monitor);
 bool         getLabelBorder(PHLMONITOR monitor);
+
+// Raw label styling; colors are "#rrggbb" or "accent", resolved by Label.cpp.
+struct SLabelStyle {
+    std::string position = "bottom";
+    bool        icon     = true;
+    float       radius   = 1.F;
+    std::string background, text, borderColor;
+    float       backgroundOpacity = 0.72F;
+    int         borderWidth       = 0;
+    bool        border            = false;
+};
+SLabelStyle  getLabelStyle(PHLMONITOR monitor);
 float        getMotionSpeed(PHLMONITOR monitor);
 std::string  getMotionEasing(PHLMONITOR monitor);
 

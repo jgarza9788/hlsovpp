@@ -438,7 +438,15 @@ static void defineConfigValues() {
     addValue(makeShared<CStringValue>("plugin:scrolloverview:motion:easing", "overview animation curve, follow = windowsMove's bezier", Hyprlang::STRING{"follow"}));
     addValue(makeShared<CBoolValue>("plugin:scrolloverview:labels:enabled", "show each window's icon and title, fading in as the windows move back", true));
     addValue(makeShared<CIntValue>("plugin:scrolloverview:labels:font_size", "window label font size", 13, SIntValueOptions{.min = 6, .max = 48}));
-    addValue(makeShared<CBoolValue>("plugin:scrolloverview:labels:border", "outline window labels in the Omarchy theme accent color", false));
+    addValue(makeShared<CBoolValue>("plugin:scrolloverview:labels:border", "outline window labels", false));
+    addValue(makeShared<CStringValue>("plugin:scrolloverview:labels:position", "label position: bottom, center or top", Hyprlang::STRING{"bottom"}));
+    addValue(makeShared<CBoolValue>("plugin:scrolloverview:labels:icon", "show the app icon in window labels", true));
+    addValue(makeShared<CFloatValue>("plugin:scrolloverview:labels:radius", "label corner roundness, 0 = square, 1 = pill", 1.F, SFloatValueOptions{.min = 0.F, .max = 1.F}));
+    addValue(makeShared<CStringValue>("plugin:scrolloverview:labels:background_color", "label background color (#rrggbb or accent)", Hyprlang::STRING{"#0d0d12"}));
+    addValue(makeShared<CFloatValue>("plugin:scrolloverview:labels:background_opacity", "label background opacity", 0.72F, SFloatValueOptions{.min = 0.F, .max = 1.F}));
+    addValue(makeShared<CStringValue>("plugin:scrolloverview:labels:text_color", "label text color (#rrggbb or accent)", Hyprlang::STRING{"#ffffff"}));
+    addValue(makeShared<CStringValue>("plugin:scrolloverview:labels:border_color", "label border color (#rrggbb or accent)", Hyprlang::STRING{"accent"}));
+    addValue(makeShared<CIntValue>("plugin:scrolloverview:labels:border_width", "label border width in px, 0 = scale with the font", 0, SIntValueOptions{.min = 0, .max = 12}));
     addValue(makeShared<CBoolValue>("plugin:scrolloverview:motion:on_gesture", "apply motion while a swipe gesture drives the overview", false));
 }
 
@@ -600,6 +608,21 @@ bool getLabelsEnabled(PHLMONITOR monitor) {
 
 bool getLabelBorder(PHLMONITOR monitor) {
     return getValue<bool>("plugin:scrolloverview:labels:border", monitor);
+}
+
+SLabelStyle getLabelStyle(PHLMONITOR monitor) {
+    const auto P = [&](const char* key) { return std::string("plugin:scrolloverview:labels:") + key; };
+    return SLabelStyle{
+        .position          = getValue<std::string>(P("position"), monitor),
+        .icon              = getValue<bool>(P("icon"), monitor),
+        .radius            = std::clamp(getValue<float>(P("radius"), monitor), 0.F, 1.F),
+        .background        = getValue<std::string>(P("background_color"), monitor),
+        .text              = getValue<std::string>(P("text_color"), monitor),
+        .borderColor       = getValue<std::string>(P("border_color"), monitor),
+        .backgroundOpacity = std::clamp(getValue<float>(P("background_opacity"), monitor), 0.F, 1.F),
+        .borderWidth       = std::clamp(getValue<int>(P("border_width"), monitor), 0, 12),
+        .border            = getLabelBorder(monitor),
+    };
 }
 
 int getLabelFontSize(PHLMONITOR monitor) {

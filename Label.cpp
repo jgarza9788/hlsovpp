@@ -214,13 +214,38 @@ uint32_t accentColor() {
     return rgb;
 }
 
+// "#rrggbb" or "accent" -> 0xRRGGBB
+uint32_t resolveColor(const std::string& spec, uint32_t fallback) {
+    if (spec == "accent")
+        return accentColor();
+    const auto HEX = !spec.empty() && spec[0] == '#' ? spec.substr(1) : spec;
+    if (HEX.size() != 6 || HEX.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos)
+        return fallback;
+    return sc<uint32_t>(std::stoul(HEX, nullptr, 16));
+}
+
 // ── texture ─────────────────────────────────────────────────────────────────
+
+struct SStyle {
+    bool     icon    = true;
+    double   radius  = 1.0;
+    uint32_t bg      = 0x0d0d12;
+    double   bgAlpha = 0.72;
+    uint32_t text    = 0xffffff;
+    int64_t  border  = -1; // -1 none, else 0xRRGGBB
+    int      borderWidth = 0;
+    bool operator==(const SStyle&) const = default;
+};
+
+void setRgb(cairo_t* cr, uint32_t rgb, double alpha) {
+    cairo_set_source_rgba(cr, ((rgb >> 16) & 0xff) / 255.0, ((rgb >> 8) & 0xff) / 255.0, (rgb & 0xff) / 255.0, alpha);
+}
 
 struct SEntry {
     PHLWINDOWREF         window;
     std::string          title, windowClass, family;
     int                  fontPx = 0;
-    int64_t              border = -1; // -1 none, else 0xRRGGBB
+    SStyle               style;
     SP<Render::ITexture> tex;
 };
 
@@ -233,14 +258,14 @@ void roundedRect(cairo_t* cr, double x, double y, double w, double h, double r) 
     cairo_close_path(cr);
 }
 
-SP<Render::ITexture> build(const std::string& title, const std::string& windowClass, const std::string& family, int fontPx, int64_t border) {
+SP<Render::ITexture> build(const std::string& title, const std::string& windowClass, const std::string& family, int fontPx, const SStyle& style) {
     const double PAD     = fontPx * 0.7;
     const double GAP     = fontPx * 0.5;
     const int    ICONPX  = std::max(8, sc<int>(std::round(fontPx * 1.5)));
     const double HEIGHT  = std::ceil(fontPx * 2.4);
     const int    MAXTEXT = fontPx * 22;
 
-    const auto ICONFILE = iconFileFor(windowClass);
+    const auto ICONFILE = style.icon ? iconFileFor(windowClass) : std::string{};
     const auto ICON     = ICONFILE.empty() ? nullptr : loadIcon(ICONFILE, ICONPX);
 
     auto* const measure = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1, 1);
@@ -264,15 +289,16 @@ SP<Render::ITexture> build(const std::string& title, const std::string& windowCl
     auto* const  surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, sc<int>(WIDTH), sc<int>(HEIGHT));
     auto* const  cr      = cairo_create(surface);
 
-    cairo_set_source_rgba(cr, 0.05, 0.05, 0.07, 0.72);
-    roundedRect(cr, 0, 0, WIDTH, HEIGHT, HEIGHT / 2);
+    const double RADIUS = HEIGHT / 2 * style.radius;
+    setRgb(cr, style.bg, style.bgAlpha);
+    roundedRect(cr, 0, 0, WIDTH, HEIGHT, RADIUS);
     cairo_fill(cr);
 
-    if (border >= 0) {
-        const double LINE = std::max(1.5, fontPx * 0.12);
-        cairo_set_source_rgb(cr, ((border >> 16) & 0xff) / 255.0, ((border >> 8) & 0xff) / 255.0, (border & 0xff) / 255.0);
+    if (style.border >= 0) {
+        const double LINE = style.borderWidth > 0 ? style.borderWidth : std::max(1.5, fontPx * 0.12);
+        setRgb(cr, sc<uint32_t>(style.border), 1.0);
         cairo_set_line_width(cr, LINE);
-        roundedRect(cr, LINE / 2, LINE / 2, WIDTH - LINE, HEIGHT - LINE, (HEIGHT - LINE) / 2);
+        roundedRect(cr, LINE / 2, LINE / 2, WIDTH - LINE, HEIGHT - LINE, std::max(0.0, RADIUS - LINE / 2));
         cairo_stroke(cr);
     }
 
@@ -292,7 +318,7 @@ SP<Render::ITexture> build(const std::string& title, const std::string& windowCl
     }
 
     pango_cairo_update_layout(cr, layout);
-    cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, 0.95);
+    setRgb(cr, style.text, 0.95);
     cairo_move_to(cr, x, (HEIGHT - textH) / 2);
     pango_cairo_show_layout(cr, layout);
 
@@ -314,17 +340,25 @@ std::unordered_map<const void*, SEntry>& cache() {
 
 }
 
-SP<Render::ITexture> texture(const PHLWINDOW& window, float monitorScale, int fontSize, bool border) {
+SP<Render::ITexture> texture(const PHLWINDOW& window, float monitorScale, int fontSize, const ScrollOverview::Config::SLabelStyle& userStyle) {
     if (!window || window->m_title.empty())
         return nullptr;
 
     const int  FONTPX = std::max(6, sc<int>(std::round(fontSize * monitorScale)));
     const auto FAMILY = ScrollOverview::Config::getValue<std::string>("misc:font_family");
-    const int64_t BORDER = border ? sc<int64_t>(accentColor()) : -1;
+    const SStyle STYLE = {
+        .icon        = userStyle.icon,
+        .radius      = userStyle.radius,
+        .bg          = resolveColor(userStyle.background, 0x0d0d12),
+        .bgAlpha     = userStyle.backgroundOpacity,
+        .text        = resolveColor(userStyle.text, 0xffffff),
+        .border      = userStyle.border ? sc<int64_t>(resolveColor(userStyle.borderColor, accentColor())) : -1,
+        .borderWidth = userStyle.borderWidth,
+    };
 
     auto&      entries = cache();
     auto&      entry   = entries[window.get()];
-    if (entry.tex && entry.window.lock() == window && entry.title == window->m_title && entry.windowClass == window->m_class && entry.family == FAMILY && entry.fontPx == FONTPX && entry.border == BORDER)
+    if (entry.tex && entry.window.lock() == window && entry.title == window->m_title && entry.windowClass == window->m_class && entry.family == FAMILY && entry.fontPx == FONTPX && entry.style == STYLE)
         return entry.tex;
 
     entry.window      = window;
@@ -332,8 +366,8 @@ SP<Render::ITexture> texture(const PHLWINDOW& window, float monitorScale, int fo
     entry.windowClass = window->m_class;
     entry.family      = FAMILY;
     entry.fontPx      = FONTPX;
-    entry.border      = BORDER;
-    entry.tex         = build(entry.title, entry.windowClass, FAMILY, FONTPX, BORDER);
+    entry.style       = STYLE;
+    entry.tex         = build(entry.title, entry.windowClass, FAMILY, FONTPX, STYLE);
 
     // Windows come and go while the overview stays open.
     if (entries.size() > 64)
