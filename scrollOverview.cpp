@@ -66,6 +66,7 @@
 #include "NativeDrag.hpp"
 #include "OverviewOpen.hpp"
 #include "OverviewPassElement.hpp"
+#include "Label.hpp"
 #include "OverviewRender.hpp"
 #include "Window.hpp"
 
@@ -988,6 +989,7 @@ CScrollOverview::~CScrollOverview() {
     restoreSubmapIfActive();
     if (const auto OPENGL = g_pHyprRenderer ? g_pHyprRenderer->glBackend() : WP<Render::GL::CHyprOpenGLImpl>{})
         OPENGL->makeEGLCurrent();
+    OverviewLabel::clear();
     if (realtimePreviewTimer) {
         wl_event_source_remove(realtimePreviewTimer);
         realtimePreviewTimer = nullptr;
@@ -4653,6 +4655,11 @@ void CScrollOverview::renderWindowLive(PHLMONITOR monitor, PHLWINDOW window, con
     Motion::SPoint TILTAXIS;
     const float    TILT = dragged ? 0.F : motionTiltFor(window, &TILTAXIS);
 
+    // The label follows the window's own scale: invisible at full size, fully
+    // there once it has moved back to the overview scale.
+    const float FULLSCALE   = ScrollOverview::Config::getScale(monitor);
+    const float LABELALPHA  = FULLSCALE < 0.999F ? std::clamp((1.F - renderScale) / (1.F - FULLSCALE), 0.F, 1.F) : 1.F;
+
     OverviewWindow::renderOverviewWindow({
         .monitor              = monitor,
         .window               = window,
@@ -4665,6 +4672,7 @@ void CScrollOverview::renderWindowLive(PHLMONITOR monitor, PHLWINDOW window, con
         .pseudoFocusWindow    = PSEUDOFOCUSWINDOW,
         .tilt                 = TILT,
         .tiltAxis             = {TILTAXIS.x, TILTAXIS.y},
+        .labelAlpha           = LABELALPHA,
     });
 }
 

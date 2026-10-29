@@ -436,6 +436,8 @@ static void defineConfigValues() {
     addValue(makeShared<CFloatValue>("plugin:scrolloverview:motion:speed", "overview animation speed relative to windowsMove: 0 = same, +1 = 2x faster, -1 = 2x slower", 0.F,
                                      SFloatValueOptions{.min = -Motion::MAX_SPEED, .max = Motion::MAX_SPEED}));
     addValue(makeShared<CStringValue>("plugin:scrolloverview:motion:easing", "overview animation curve, follow = windowsMove's bezier", Hyprlang::STRING{"follow"}));
+    addValue(makeShared<CBoolValue>("plugin:scrolloverview:labels:enabled", "show each window's icon and title, fading in as the windows move back", true));
+    addValue(makeShared<CIntValue>("plugin:scrolloverview:labels:font_size", "window label font size", 13, SIntValueOptions{.min = 6, .max = 48}));
     addValue(makeShared<CBoolValue>("plugin:scrolloverview:motion:on_gesture", "apply motion while a swipe gesture drives the overview", false));
 }
 
@@ -589,6 +591,14 @@ float getMotionSpeed(PHLMONITOR monitor) {
 std::string getMotionEasing(PHLMONITOR monitor) {
     const auto EASING = getValue<std::string>("plugin:scrolloverview:motion:easing", monitor);
     return Motion::isEasingName(EASING) ? EASING : "follow";
+}
+
+bool getLabelsEnabled(PHLMONITOR monitor) {
+    return getValue<bool>("plugin:scrolloverview:labels:enabled", monitor);
+}
+
+int getLabelFontSize(PHLMONITOR monitor) {
+    return std::clamp(getValue<int>("plugin:scrolloverview:labels:font_size", monitor), 6, 48);
 }
 
 bool getMotionOnGesture(PHLMONITOR monitor) {

@@ -22,6 +22,7 @@ struct SRenderParams {
     PHLWINDOW             pseudoFocusWindow;
     float                 tilt                 = 0.F; // hlsovpp: in-flight 3D tilt (radians), 0 = flat
     Vector2D              tiltAxis             = {1.0, 0.0}; // hlsovpp: tilt axis (unit, screen plane)
+    float                 labelAlpha           = 0.F; // hlsovpp: icon + title label, 0 = hidden
 };
 
 void renderOverviewWindow(const SRenderParams& params);

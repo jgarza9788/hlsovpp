@@ -32,6 +32,7 @@
 #undef protected
 #undef private
 #include "Config.hpp"
+#include "Label.hpp"
 #include "TiltPassElement.hpp"
 #include "OverviewPassElement.hpp"
 #include "OverviewRender.hpp"
@@ -830,6 +831,32 @@ static void renderOverviewGroupTabTitles(PHLMONITOR monitor, const PHLWINDOW& wi
     }
 }
 
+// hlsovpp: icon + title pill, centred along the bottom edge of the card.
+static void renderOverviewLabel(PHLMONITOR monitor, const PHLWINDOW& window, const CBox& windowBox, float alpha) {
+    if (!monitor || !window || alpha <= 0.01F || !ScrollOverview::Config::getLabelsEnabled(monitor))
+        return;
+
+    const auto tex = OverviewLabel::texture(window, sc<float>(monitor->m_scale), ScrollOverview::Config::getLabelFontSize(monitor));
+    if (!tex || !tex->ok() || tex->m_size.x < 1 || tex->m_size.y < 1)
+        return;
+
+    // Narrow cards shrink the pill; tiny ones go without.
+    const float FIT = std::min(1.F, sc<float>(windowBox.width * 0.9 / tex->m_size.x));
+    if (FIT < 0.5F)
+        return;
+
+    CBox box = {0, 0, tex->m_size.x * FIT, tex->m_size.y * FIT};
+    box.x    = windowBox.x + (windowBox.width - box.width) / 2.0;
+    box.y    = windowBox.y + windowBox.height - box.height - box.height * 0.5;
+    box.round();
+
+    CTexPassElement::SRenderData data;
+    data.tex = tex;
+    data.box = box;
+    data.a   = std::clamp(alpha, 0.F, 1.F);
+    g_pHyprRenderer->m_renderPass.add(makeUnique<CTexPassElement>(data));
+}
+
 static void renderOverviewGroupTabs(PHLMONITOR monitor, const PHLWINDOW& window, const CBox& windowBox, const CBox& workspaceBox,
                                     const SOverviewWindowMetrics& metrics) {
     if (!monitor || !window || !window->m_group || window->m_group->size() < 1)
@@ -1021,6 +1048,9 @@ static void renderOverviewWindowFlat(const SRenderParams& params) {
 
     if (!fullscreen)
         renderOverviewWindowBorder(params.monitor, params.window, params.windowBox, metrics, params.selected);
+
+    if (!fullscreen)
+        renderOverviewLabel(params.monitor, params.window, params.windowBox, params.labelAlpha * metrics.targetOpacity);
 
     raiseWindowPopups(params.window, firstWindowPassElement);
     OverviewRender::flushPass(params.monitor);

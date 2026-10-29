@@ -35,6 +35,22 @@ hl.bind("SUPER + TAB", function() hl.plugin.scrolloverview.overview("toggle all"
 
 Without Omarchy: `hyprpm add https://github.com/jgarza9788/hlsovpp && hyprpm enable scrolloverview`, then configure as below.
 
+## Labels
+
+```lua
+hl.config({ plugin = { scrolloverview = {
+  labels = {
+    enabled = true,         -- icon + title pill on each window
+    font_size = 13,         -- 6 - 48
+  },
+} } })
+```
+
+Each window gets its app icon (from its `.desktop` file and your GTK icon
+theme) and title along its bottom edge. The label fades in as the window moves
+back and out as it comes forward, following that window's own motion. Narrow
+cards shrink the label, and tiny ones go without.
+
 ## Motion
 
 ```lua

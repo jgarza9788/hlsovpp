@@ -23,6 +23,10 @@ if hl.plugin.scrolloverview then
       rewind_on_close = true,
       on_gesture = false,
     },
+    labels = {
+      enabled = true,
+      font_size = 13,
+    },
     shadow = {
       enabled = false,
       range = 50,
