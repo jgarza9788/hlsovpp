@@ -2,10 +2,12 @@
 #include "Config.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -175,12 +177,50 @@ SP<Hyprgraphics::CCairoSurface> loadIcon(const std::string& path, int px) {
     return surface;
 }
 
+// ── accent ──────────────────────────────────────────────────────────────────
+
+// The Omarchy theme accent as 0xRRGGBB, resolved like the shell's Commons.Color:
+// the `accent` key of theme/colors.toml, else `color4`. Re-read every couple of
+// seconds so a theme switch shows up without reopening anything.
+uint32_t accentColor() {
+    constexpr uint32_t FALLBACK = 0x33ccff;
+    static uint32_t    rgb      = FALLBACK;
+    static auto        checked  = std::chrono::steady_clock::time_point{};
+
+    const auto NOW = std::chrono::steady_clock::now();
+    if (checked != std::chrono::steady_clock::time_point{} && NOW - checked < std::chrono::seconds(2))
+        return rgb;
+    checked = NOW;
+
+    std::ifstream file(envOr("XDG_STATE_HOME", envOr("HOME", "") + "/.local/state") + "/omarchy/current/theme/colors.toml");
+    std::string   line;
+    std::optional<uint32_t> accent, color4;
+    while (std::getline(file, line)) {
+        const auto EQ = line.find('=');
+        if (EQ == std::string::npos)
+            continue;
+        auto key = line.substr(0, EQ);
+        key.erase(std::remove_if(key.begin(), key.end(), [](unsigned char c) { return std::isspace(c); }), key.end());
+        if (key != "accent" && key != "color4")
+            continue;
+        const auto HASH = line.find('#', EQ);
+        if (HASH == std::string::npos || line.size() < HASH + 7)
+            continue;
+        try {
+            (key == "accent" ? accent : color4) = sc<uint32_t>(std::stoul(line.substr(HASH + 1, 6), nullptr, 16));
+        } catch (...) {}
+    }
+    rgb = accent.value_or(color4.value_or(FALLBACK));
+    return rgb;
+}
+
 // ── texture ─────────────────────────────────────────────────────────────────
 
 struct SEntry {
     PHLWINDOWREF         window;
     std::string          title, windowClass, family;
     int                  fontPx = 0;
+    int64_t              border = -1; // -1 none, else 0xRRGGBB
     SP<Render::ITexture> tex;
 };
 
@@ -193,7 +233,7 @@ void roundedRect(cairo_t* cr, double x, double y, double w, double h, double r) 
     cairo_close_path(cr);
 }
 
-SP<Render::ITexture> build(const std::string& title, const std::string& windowClass, const std::string& family, int fontPx) {
+SP<Render::ITexture> build(const std::string& title, const std::string& windowClass, const std::string& family, int fontPx, int64_t border) {
     const double PAD     = fontPx * 0.7;
     const double GAP     = fontPx * 0.5;
     const int    ICONPX  = std::max(8, sc<int>(std::round(fontPx * 1.5)));
@@ -227,6 +267,14 @@ SP<Render::ITexture> build(const std::string& title, const std::string& windowCl
     cairo_set_source_rgba(cr, 0.05, 0.05, 0.07, 0.72);
     roundedRect(cr, 0, 0, WIDTH, HEIGHT, HEIGHT / 2);
     cairo_fill(cr);
+
+    if (border >= 0) {
+        const double LINE = std::max(1.5, fontPx * 0.12);
+        cairo_set_source_rgb(cr, ((border >> 16) & 0xff) / 255.0, ((border >> 8) & 0xff) / 255.0, (border & 0xff) / 255.0);
+        cairo_set_line_width(cr, LINE);
+        roundedRect(cr, LINE / 2, LINE / 2, WIDTH - LINE, HEIGHT - LINE, (HEIGHT - LINE) / 2);
+        cairo_stroke(cr);
+    }
 
     double x = PAD;
     if (ICON && ICON->cairo()) {
@@ -266,16 +314,17 @@ std::unordered_map<const void*, SEntry>& cache() {
 
 }
 
-SP<Render::ITexture> texture(const PHLWINDOW& window, float monitorScale, int fontSize) {
+SP<Render::ITexture> texture(const PHLWINDOW& window, float monitorScale, int fontSize, bool border) {
     if (!window || window->m_title.empty())
         return nullptr;
 
     const int  FONTPX = std::max(6, sc<int>(std::round(fontSize * monitorScale)));
     const auto FAMILY = ScrollOverview::Config::getValue<std::string>("misc:font_family");
+    const int64_t BORDER = border ? sc<int64_t>(accentColor()) : -1;
 
     auto&      entries = cache();
     auto&      entry   = entries[window.get()];
-    if (entry.tex && entry.window.lock() == window && entry.title == window->m_title && entry.windowClass == window->m_class && entry.family == FAMILY && entry.fontPx == FONTPX)
+    if (entry.tex && entry.window.lock() == window && entry.title == window->m_title && entry.windowClass == window->m_class && entry.family == FAMILY && entry.fontPx == FONTPX && entry.border == BORDER)
         return entry.tex;
 
     entry.window      = window;
@@ -283,7 +332,8 @@ SP<Render::ITexture> texture(const PHLWINDOW& window, float monitorScale, int fo
     entry.windowClass = window->m_class;
     entry.family      = FAMILY;
     entry.fontPx      = FONTPX;
-    entry.tex         = build(entry.title, entry.windowClass, FAMILY, FONTPX);
+    entry.border      = BORDER;
+    entry.tex         = build(entry.title, entry.windowClass, FAMILY, FONTPX, BORDER);
 
     // Windows come and go while the overview stays open.
     if (entries.size() > 64)

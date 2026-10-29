@@ -10,7 +10,8 @@
 namespace OverviewLabel {
 
 // Label texture in monitor pixels, or null when there is nothing to show.
-SP<Render::ITexture> texture(const PHLWINDOW& window, float monitorScale, int fontSize);
+// `border` outlines the pill in the Omarchy theme accent.
+SP<Render::ITexture> texture(const PHLWINDOW& window, float monitorScale, int fontSize, bool border);
 
 // Forget every cached label (the overview closed).
 void clear();

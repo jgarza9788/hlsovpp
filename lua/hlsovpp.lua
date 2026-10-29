@@ -26,6 +26,7 @@ if hl.plugin.scrolloverview then
     labels = {
       enabled = true,
       font_size = 13,
+      border = false,
     },
     shadow = {
       enabled = false,

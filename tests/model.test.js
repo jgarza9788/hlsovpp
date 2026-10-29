@@ -60,6 +60,8 @@ var motionRows = function(s) { return M.rowsFor("Motion", s).map(function(i) { r
 ok("ripple shows origin, hides direction", motionRows(d).indexOf("motion:origin") !== -1 && motionRows(d).indexOf("motion:direction") === -1)
 ok("sweep shows direction", motionRows(Object.assign({}, d, { "motion:style": "sweep" })).indexOf("motion:direction") !== -1)
 ok("none hides stagger and its options", motionRows(Object.assign({}, d, { "motion:style": "none" })).join() === "motion:style,motion:easing,motion:speed,motion:tilt,motion:on_gesture")
+ok("label border has no panel row", M.rowsFor("Look", d).every(function(i) { return i.key !== "labels:border" }))
+ok("label border still round-trips", M.parseLua(M.renderLua(Object.assign({}, d, { "labels:border": true })))["labels:border"] === true)
 ok("shadow range needs shadow", M.rowsFor("Look", d).every(function(i) { return i.key !== "shadow:range" }))
 
 // ── nudge ────────────────────────────────────────────────────────────────────

@@ -42,6 +42,7 @@ hl.config({ plugin = { scrolloverview = {
   labels = {
     enabled = true,         -- icon + title pill on each window
     font_size = 13,         -- 6 - 48
+    border = false,         -- outline the pill in the theme accent color (Lua only, not in the panel)
   },
 } } })
 ```

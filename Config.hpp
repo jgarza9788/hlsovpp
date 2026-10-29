@@ -122,6 +122,7 @@ bool         getMotionOriginCursor(PHLMONITOR monitor);
 bool         getMotionOnGesture(PHLMONITOR monitor);
 bool         getLabelsEnabled(PHLMONITOR monitor);
 int          getLabelFontSize(PHLMONITOR monitor);
+bool         getLabelBorder(PHLMONITOR monitor);
 float        getMotionSpeed(PHLMONITOR monitor);
 std::string  getMotionEasing(PHLMONITOR monitor);
 

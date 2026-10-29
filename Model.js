@@ -98,6 +98,9 @@ var SCHEMA = [
   { section: "Look", key: "labels:font_size", type: "int", label: "Label size",
     description: "Font size of the window labels.", unit: "px",
     min: 6, max: 48, step: 1, fallback: 13, needs: "labels:enabled", needsValue: "true" },
+  // Lua only: kept in the schema so a panel save writes it back, but no row.
+  { section: "Look", key: "labels:border", type: "bool", label: "Label border", hidden: true,
+    description: "Outline the labels in the theme accent color.", fallback: false },
   { section: "Look", key: "shadow:enabled", type: "bool", label: "Card shadow",
     description: "Draw a shadow around each workspace card.", fallback: false },
   { section: "Look", key: "shadow:range", type: "int", label: "Shadow range",
@@ -160,7 +163,7 @@ function rowsFor(section, settings) {
   var out = []
   for (var i = 0; i < SCHEMA.length; i++) {
     var item = SCHEMA[i]
-    if (item.section !== section) continue
+    if (item.section !== section || item.hidden) continue
     if (item.needs && settings && !needsMet(item, settings)) continue
     out.push(item)
   }

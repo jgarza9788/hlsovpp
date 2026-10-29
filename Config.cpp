@@ -438,6 +438,7 @@ static void defineConfigValues() {
     addValue(makeShared<CStringValue>("plugin:scrolloverview:motion:easing", "overview animation curve, follow = windowsMove's bezier", Hyprlang::STRING{"follow"}));
     addValue(makeShared<CBoolValue>("plugin:scrolloverview:labels:enabled", "show each window's icon and title, fading in as the windows move back", true));
     addValue(makeShared<CIntValue>("plugin:scrolloverview:labels:font_size", "window label font size", 13, SIntValueOptions{.min = 6, .max = 48}));
+    addValue(makeShared<CBoolValue>("plugin:scrolloverview:labels:border", "outline window labels in the Omarchy theme accent color", false));
     addValue(makeShared<CBoolValue>("plugin:scrolloverview:motion:on_gesture", "apply motion while a swipe gesture drives the overview", false));
 }
 
@@ -595,6 +596,10 @@ std::string getMotionEasing(PHLMONITOR monitor) {
 
 bool getLabelsEnabled(PHLMONITOR monitor) {
     return getValue<bool>("plugin:scrolloverview:labels:enabled", monitor);
+}
+
+bool getLabelBorder(PHLMONITOR monitor) {
+    return getValue<bool>("plugin:scrolloverview:labels:border", monitor);
 }
 
 int getLabelFontSize(PHLMONITOR monitor) {
