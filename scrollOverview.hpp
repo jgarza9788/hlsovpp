@@ -201,10 +201,10 @@ class CScrollOverview : public IOverview {
 
     struct SWorkspaceInsertTransition {
         bool                             active              = false;
-        std::string                            transitionWorkspaceKey = "";
+        WORKSPACEID                      transitionWorkspaceID = WORKSPACE_INVALID;
         bool                             transitionFadeIn   = true;
-        std::unordered_map<std::string, float> oldRelativeOffsets;
-        std::unordered_map<std::string, float> newRelativeOffsets;
+        std::unordered_map<WORKSPACEID, float> oldRelativeOffsets;
+        std::unordered_map<WORKSPACEID, float> newRelativeOffsets;
         float                            transitionOldRelativeOffset = 0.F;
     };
 
@@ -232,7 +232,7 @@ class CScrollOverview : public IOverview {
     CBox                             dragOriginalOverviewBox    = CBox{};
     CBox                             dragOriginalOverviewHitbox = CBox{};
     CBox                             resizeOriginalBox          = CBox{};
-    std::string                      focusSyncedFromWorkspaceKey       = "";
+    WORKSPACEID                      focusSyncedFromWorkspaceID = WORKSPACE_INVALID;
     size_t                           resizeWorkspaceIdx     = 0;
     Layout::eRectCorner              resizeCorner           = Layout::CORNER_NONE;
     bool                             dragPendingPrimary    = false;
@@ -262,8 +262,7 @@ class CScrollOverview : public IOverview {
 
     std::vector<SP<SWorkspaceImage>> images;
     std::vector<PHLWINDOWREF>        pinnedFloatingWindows;
-    // Selectors distinguish numbered, named, and special workspace identities.
-    std::unordered_map<std::string, PHLWINDOWREF> rememberedSelection;
+    std::unordered_map<WORKSPACEID, PHLWINDOWREF> rememberedSelection;
     SWorkspaceInsertTransition       workspaceInsertTransition;
     PHLWORKSPACEREF                  pendingRemovedWorkspace;
     ScrollOverview::Config::ELayout  layout = ScrollOverview::Config::ELayout::VERTICAL;

@@ -8,18 +8,14 @@
 namespace OverviewRender {
 
 void flushPass(PHLMONITOR monitor) {
-    if (!monitor)
+    if (!monitor || g_pHyprRenderer->m_renderPass.empty())
         return;
 
-    auto& pass = Render::IHyprRenderer::currentPass(g_pHyprRenderer->context());
-    if (pass.empty())
-        return;
-
-    pass.render(g_pHyprRenderer->context(), CRegion{CBox{{}, monitor->m_transformedSize}});
-    pass.clear();
+    g_pHyprRenderer->m_renderPass.render(CRegion{CBox{{}, monitor->m_transformedSize}});
+    g_pHyprRenderer->m_renderPass.clear();
 }
 
-void queueBlur(Render::CRenderContext& ctx, const CBox& box, int rounding, float roundingPower, float alpha, bool usePrecomputedBlur) {
+void queueBlur(const CBox& box, int rounding, float roundingPower, float alpha, bool usePrecomputedBlur) {
     if (alpha <= 0.F)
         return;
 
@@ -34,14 +30,14 @@ void queueBlur(Render::CRenderContext& ctx, const CBox& box, int rounding, float
     data.blur          = true;
     data.blurA         = alpha;
     data.xray          = usePrecomputedBlur;
-    Render::IHyprRenderer::currentPass(ctx).add(makeUnique<CRectPassElement>(data));
+    g_pHyprRenderer->m_renderPass.add(makeUnique<CRectPassElement>(data));
 }
 
-void renderBlur(Render::CRenderContext& ctx, PHLMONITOR monitor, const CBox& box, int rounding, float roundingPower, float alpha, bool usePrecomputedBlur) {
+void renderBlur(PHLMONITOR monitor, const CBox& box, int rounding, float roundingPower, float alpha, bool usePrecomputedBlur) {
     if (!monitor)
         return;
 
-    queueBlur(ctx, box, rounding, roundingPower, alpha, usePrecomputedBlur);
+    queueBlur(box, rounding, roundingPower, alpha, usePrecomputedBlur);
     flushPass(monitor);
 }
 
