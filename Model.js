@@ -109,6 +109,9 @@ var SCHEMA = [
     description: "Show the app icon beside the title.", fallback: true, needs: "labels:enabled", needsValue: "true" },
   { section: "Labels", key: "labels:clean_title", type: "bool", label: "Clean titles",
     description: "Hide the app name from window titles.", fallback: true, needs: "labels:enabled", needsValue: "true" },
+  // Lua only, like the colors. "$title" and "$class" (no braces: the Lua reader above tracks them as tables).
+  { section: "Labels", key: "labels:title_format", type: "string", label: "Label text", hidden: true,
+    description: "Label template: $title and $class.", fallback: "$title" },
   { section: "Labels", key: "labels:radius", type: "float", label: "Label roundness",
     description: "Corner roundness: 0 = square, 1 = pill.", min: 0, max: 1, step: 0.1, decimals: 2, fallback: 1, needs: "labels:enabled", needsValue: "true" },
   // Colors are Lua only for now (no picker): hidden rows are kept so a panel save writes them back.
@@ -227,6 +230,12 @@ function coerce(key, raw) {
     var hex = c.match(/^#?([0-9a-f]{6})$/)
     if (hex) return { ok: true, value: "#" + hex[1] }
     return { ok: false, error: key + ' must be "#rrggbb" or "accent"' }
+  }
+
+  if (item.type === "string") {
+    var str = String(raw).replace(/[\x00-\x1f]/g, "").trim()
+    if (/[{}]|--/.test(str)) return { ok: false, error: key + " can't contain braces or --" }
+    return { ok: true, value: str === "" ? item.fallback : str.slice(0, 80) }
   }
 
   return { ok: false, error: "unsupported setting " + key }

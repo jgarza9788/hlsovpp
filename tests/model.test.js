@@ -67,6 +67,9 @@ ok("border width needs border", labelRows(Object.assign({}, d, { "labels:border"
 ok("label colors have no panel row", labelRows(Object.assign({}, d, { "labels:border": true })).every(function(k) { return !/color/.test(k) }))
 ok("label border still round-trips", M.parseLua(M.renderLua(Object.assign({}, d, { "labels:border": true })))["labels:border"] === true)
 ok("label colors normalise", M.coerce("labels:text_color", "FFAA00").value === "#ffaa00" && M.coerce("labels:border_color", "Accent").value === "accent")
+ok("title format round-trips", M.parseLua(M.renderLua(Object.assign({}, d, { "labels:title_format": "$class: $title" })))["labels:title_format"] === "$class: $title")
+ok("title format rejects braces", !M.coerce("labels:title_format", "{title}").ok)
+ok("title format has no panel row", labelRows(d).indexOf("labels:title_format") === -1)
 ok("bad label color rejected", !M.coerce("labels:text_color", "red").ok)
 ok("label style round-trips", (function() {
   var s = M.parseLua(M.renderLua(Object.assign({}, d, { "labels:position": "top", "labels:text_color": "#112233", "labels:radius": 0.4 })))

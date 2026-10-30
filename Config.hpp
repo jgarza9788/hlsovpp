@@ -131,6 +131,7 @@ struct SLabelStyle {
     bool        cleanTitle = true;
     float       radius   = 1.F;
     std::string background, text, borderColor;
+    std::string titleFormat = "$title"; // $title and $class
     float       backgroundOpacity = 0.72F;
     int         borderWidth       = 0;
     bool        border            = false;

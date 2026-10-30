@@ -45,6 +45,7 @@ hl.config({ plugin = { scrolloverview = {
     border = false,         -- outline the pill (Lua only, like everything below)
     position = "bottom",    -- bottom center top
     icon = true,            -- app icon beside the title (a letter badge when the app has none)
+    title_format = "$title", -- label text: $title and $class, e.g. "$class: $title"
     clean_title = true,     -- drop the app name from titles ("Page - Zen Browser" -> "Page")
     radius = 1,             -- 0 = square, 1 = pill
     background_color = "#0d0d12",  -- "#rrggbb" or "accent" (the Omarchy theme color)

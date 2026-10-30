@@ -29,6 +29,7 @@ if hl.plugin.scrolloverview then
       position = "bottom",
       icon = true,
       clean_title = true,
+      title_format = "$title",
       radius = 1,
       background_color = "#0d0d12",
       background_opacity = 0.72,

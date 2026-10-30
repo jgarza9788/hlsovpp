@@ -444,13 +444,25 @@ SP<Render::ITexture> texture(const PHLWINDOW& window, float monitorScale, int fo
     // Empty titles show the class; otherwise the app name is trimmed unless the user wants it.
     const std::string TITLE = window->m_title.empty() ? window->m_class : (STYLE.cleanTitle ? cleanTitle(window->m_title, window->m_class) : window->m_title);
 
+    // Template last: $class is the raw window class.
+    std::string text = TITLE;
+    if (userStyle.titleFormat != "$title") {
+        text = userStyle.titleFormat;
+        for (const auto& [token, value] : {std::pair<std::string, std::string>{"$title", TITLE}, {"$class", window->m_class}}) {
+            for (size_t at = 0; (at = text.find(token, at)) != std::string::npos; at += value.size())
+                text.replace(at, token.size(), value);
+        }
+        if (text.empty())
+            text = TITLE;
+    }
+
     auto&      entries = cache();
     auto&      entry   = entries[window.get()];
-    if (entry.tex && entry.window.lock() == window && entry.title == TITLE && entry.windowClass == window->m_class && entry.family == FAMILY && entry.fontPx == FONTPX && entry.style == STYLE)
+    if (entry.tex && entry.window.lock() == window && entry.title == text && entry.windowClass == window->m_class && entry.family == FAMILY && entry.fontPx == FONTPX && entry.style == STYLE)
         return entry.tex;
 
     entry.window      = window;
-    entry.title       = TITLE;
+    entry.title       = text;
     entry.windowClass = window->m_class;
     entry.family      = FAMILY;
     entry.fontPx      = FONTPX;
