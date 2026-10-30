@@ -45,8 +45,8 @@ hl.config({ plugin = { scrolloverview = {
     border = false,         -- outline the pill (Lua only, like everything below)
     position = "bottom",    -- bottom center top
     icon = true,            -- app icon beside the title (a letter badge when the app has none)
-    title_format = "$title", -- label text: $title and $class, e.g. "$class: $title"
     clean_title = true,     -- drop the app name from titles ("Page - Zen Browser" -> "Page")
+    title_format = "$title",  -- label text template, see "Title format" below
     radius = 1,             -- 0 = square, 1 = pill
     background_color = "#0d0d12",  -- "#rrggbb" or "accent" (the Omarchy theme color)
     background_opacity = 0.72,     -- 0 - 1
@@ -61,6 +61,32 @@ Each window gets its app icon (from its `.desktop` file and your GTK icon
 theme) and title along its bottom edge. The label fades in as the window moves
 back and out as it comes forward, following that window's own motion. Narrow
 cards shrink the label, and tiny ones go without.
+
+### Title format
+
+`title_format` (Lua only) sets the text of the label. It is a plain string with
+two placeholders:
+
+| Placeholder | Replaced with |
+| --- | --- |
+| `$title` | the window title (after `clean_title`; the class when the title is empty) |
+| `$class` | the window class, e.g. `firefox`, `kitty` |
+
+```lua
+labels = {
+  title_format = "$title",           -- default: just the title
+  -- title_format = "$class: $title",   -- kitty: ~/projects
+  -- title_format = "$class",           -- app name only
+}
+```
+
+Rules:
+- Write `$title` / `$class`, not `{title}` / `{class}`. Braces and `--` are
+  rejected, because the settings panel reads `hlsovpp.lua` back and tracks
+  braces as nested tables.
+- Any other text is kept as is, and a placeholder can appear more than once.
+- If the result is empty, the plain title is shown instead.
+- The panel has no row for it, but keeps your value when it saves.
 
 ## Motion
 
