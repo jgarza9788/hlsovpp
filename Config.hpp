@@ -128,6 +128,7 @@ bool         getLabelBorder(PHLMONITOR monitor);
 struct SLabelStyle {
     std::string position = "bottom";
     bool        icon     = true;
+    bool        cleanTitle = true;
     float       radius   = 1.F;
     std::string background, text, borderColor;
     float       backgroundOpacity = 0.72F;

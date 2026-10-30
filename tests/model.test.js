@@ -61,7 +61,7 @@ ok("ripple shows origin, hides direction", motionRows(d).indexOf("motion:origin"
 ok("sweep shows direction", motionRows(Object.assign({}, d, { "motion:style": "sweep" })).indexOf("motion:direction") !== -1)
 ok("none hides stagger and its options", motionRows(Object.assign({}, d, { "motion:style": "none" })).join() === "motion:style,motion:easing,motion:speed,motion:tilt,motion:on_gesture")
 var labelRows = function(s) { return M.rowsFor("Labels", s).map(function(i) { return i.key }) }
-ok("labels section lists the toggle and its options", labelRows(d).join() === "labels:enabled,labels:font_size,labels:position,labels:icon,labels:radius,labels:background_opacity,labels:border")
+ok("labels section lists the toggle and its options", labelRows(d).join() === "labels:enabled,labels:font_size,labels:position,labels:icon,labels:clean_title,labels:radius,labels:background_opacity,labels:border")
 ok("labels off hides the options", labelRows(Object.assign({}, d, { "labels:enabled": false })).join() === "labels:enabled")
 ok("border width needs border", labelRows(Object.assign({}, d, { "labels:border": true })).indexOf("labels:border_width") !== -1)
 ok("label colors have no panel row", labelRows(Object.assign({}, d, { "labels:border": true })).every(function(k) { return !/color/.test(k) }))

@@ -441,6 +441,7 @@ static void defineConfigValues() {
     addValue(makeShared<CBoolValue>("plugin:scrolloverview:labels:border", "outline window labels", false));
     addValue(makeShared<CStringValue>("plugin:scrolloverview:labels:position", "label position: bottom, center or top", Hyprlang::STRING{"bottom"}));
     addValue(makeShared<CBoolValue>("plugin:scrolloverview:labels:icon", "show the app icon in window labels", true));
+    addValue(makeShared<CBoolValue>("plugin:scrolloverview:labels:clean_title", "hide the app name from window label titles", true));
     addValue(makeShared<CFloatValue>("plugin:scrolloverview:labels:radius", "label corner roundness, 0 = square, 1 = pill", 1.F, SFloatValueOptions{.min = 0.F, .max = 1.F}));
     addValue(makeShared<CStringValue>("plugin:scrolloverview:labels:background_color", "label background color (#rrggbb or accent)", Hyprlang::STRING{"#0d0d12"}));
     addValue(makeShared<CFloatValue>("plugin:scrolloverview:labels:background_opacity", "label background opacity", 0.72F, SFloatValueOptions{.min = 0.F, .max = 1.F}));
@@ -615,6 +616,7 @@ SLabelStyle getLabelStyle(PHLMONITOR monitor) {
     return SLabelStyle{
         .position          = getValue<std::string>(P("position"), monitor),
         .icon              = getValue<bool>(P("icon"), monitor),
+        .cleanTitle        = getValue<bool>(P("clean_title"), monitor),
         .radius            = std::clamp(getValue<float>(P("radius"), monitor), 0.F, 1.F),
         .background        = getValue<std::string>(P("background_color"), monitor),
         .text              = getValue<std::string>(P("text_color"), monitor),

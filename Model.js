@@ -107,6 +107,8 @@ var SCHEMA = [
     ], fallback: "bottom", needs: "labels:enabled", needsValue: "true" },
   { section: "Labels", key: "labels:icon", type: "bool", label: "Label icon",
     description: "Show the app icon beside the title.", fallback: true, needs: "labels:enabled", needsValue: "true" },
+  { section: "Labels", key: "labels:clean_title", type: "bool", label: "Clean titles",
+    description: "Hide the app name from window titles.", fallback: true, needs: "labels:enabled", needsValue: "true" },
   { section: "Labels", key: "labels:radius", type: "float", label: "Label roundness",
     description: "Corner roundness: 0 = square, 1 = pill.", min: 0, max: 1, step: 0.1, decimals: 2, fallback: 1, needs: "labels:enabled", needsValue: "true" },
   // Colors are Lua only for now (no picker): hidden rows are kept so a panel save writes them back.

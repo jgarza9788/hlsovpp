@@ -56,18 +56,22 @@ std::vector<fs::path> dataDirs() {
 
 // ── icons ───────────────────────────────────────────────────────────────────
 
-// Window class (or desktop file name) -> Icon= value, from the .desktop files.
-const std::unordered_map<std::string, std::string>& desktopIcons() {
+struct SDesktopEntry {
+    std::string icon, name;
+};
+
+// Window class (or desktop file name) -> Icon= and Name= values, from the .desktop files.
+const std::unordered_map<std::string, SDesktopEntry>& desktopEntries() {
     static const auto INDEX = [] {
-        std::unordered_map<std::string, std::string> index;
-        std::error_code                              ec;
+        std::unordered_map<std::string, SDesktopEntry> index;
+        std::error_code                                ec;
         for (const auto& dir : dataDirs()) {
             for (fs::recursive_directory_iterator it(dir / "applications", ec), end; !ec && it != end; it.increment(ec)) {
                 if (it->path().extension() != ".desktop")
                     continue;
 
                 std::ifstream file(it->path());
-                std::string   line, icon, wmClass;
+                std::string   line, icon, name, wmClass;
                 bool          inEntry = false;
                 while (std::getline(file, line)) {
                     if (line.starts_with("[")) {
@@ -76,6 +80,8 @@ const std::unordered_map<std::string, std::string>& desktopIcons() {
                     }
                     if (inEntry && line.starts_with("Icon="))
                         icon = line.substr(5);
+                    else if (inEntry && line.starts_with("Name="))
+                        name = line.substr(5);
                     else if (inEntry && line.starts_with("StartupWMClass="))
                         wmClass = line.substr(15);
                 }
@@ -83,9 +89,9 @@ const std::unordered_map<std::string, std::string>& desktopIcons() {
                     continue;
 
                 // First hit wins: user files are listed before system ones.
-                index.emplace(lower(it->path().stem().string()), icon);
+                index.emplace(lower(it->path().stem().string()), SDesktopEntry{icon, name});
                 if (!wmClass.empty())
-                    index.emplace(lower(wmClass), icon);
+                    index.emplace(lower(wmClass), SDesktopEntry{icon, name});
             }
         }
         return index;
@@ -152,8 +158,8 @@ std::string iconFileFor(const std::string& windowClass) {
         return it->second;
 
     std::string file;
-    if (const auto it = desktopIcons().find(KEY); it != desktopIcons().end())
-        file = findIconFile(it->second);
+    if (const auto it = desktopEntries().find(KEY); it != desktopEntries().end())
+        file = findIconFile(it->second.icon);
     if (file.empty())
         file = findIconFile(KEY);
 
@@ -224,10 +230,60 @@ uint32_t resolveColor(const std::string& spec, uint32_t fallback) {
     return sc<uint32_t>(std::stoul(HEX, nullptr, 16));
 }
 
+// ── title ───────────────────────────────────────────────────────────────────
+
+std::string alnum(const std::string& s) {
+    std::string out;
+    for (const unsigned char c : s) {
+        if (std::isalnum(c) || c >= 0x80)
+            out += sc<char>(std::tolower(c));
+    }
+    return out;
+}
+
+// Drop the app name a title carries ("Page - Zen Browser", "Zen Browser | Page"): the icon
+// already says it. A part counts as the app name when it matches the class or the desktop
+// entry's Name=. Never strips down to nothing.
+std::string cleanTitle(const std::string& title, const std::string& windowClass) {
+    static const std::vector<std::string> SEPS = {" - ", " \u2013 ", " \u2014 ", " | ", " \u00b7 "};
+
+    std::vector<std::string> names{alnum(windowClass)};
+    if (const auto it = desktopEntries().find(lower(windowClass)); it != desktopEntries().end())
+        names.push_back(alnum(it->second.name));
+
+    const auto isApp = [&](const std::string& part) {
+        const auto P = alnum(part);
+        if (P.size() < 3)
+            return false;
+        return std::ranges::any_of(names, [&](const std::string& n) { return n.size() >= 3 && (P == n || (P.size() >= 4 && n.find(P) != std::string::npos) || (n.size() >= 4 && P.find(n) != std::string::npos)); });
+    };
+
+    size_t bestPos = std::string::npos, bestLen = 0;
+    for (const auto& sep : SEPS) {
+        const auto POS = title.rfind(sep);
+        if (POS != std::string::npos && (bestPos == std::string::npos || POS > bestPos))
+            bestPos = POS, bestLen = sep.size();
+    }
+    if (bestPos != std::string::npos && isApp(title.substr(bestPos + bestLen)))
+        return title.substr(0, bestPos);
+
+    bestPos = std::string::npos;
+    for (const auto& sep : SEPS) {
+        const auto POS = title.find(sep);
+        if (POS != std::string::npos && (bestPos == std::string::npos || POS < bestPos))
+            bestPos = POS, bestLen = sep.size();
+    }
+    if (bestPos != std::string::npos && isApp(title.substr(0, bestPos)))
+        return title.substr(bestPos + bestLen);
+
+    return title;
+}
+
 // ── texture ─────────────────────────────────────────────────────────────────
 
 struct SStyle {
     bool     icon    = true;
+    bool     cleanTitle = true;
     double   radius  = 1.0;
     uint32_t bg      = 0x0d0d12;
     double   bgAlpha = 0.72;
@@ -267,6 +323,7 @@ SP<Render::ITexture> build(const std::string& title, const std::string& windowCl
 
     const auto ICONFILE = style.icon ? iconFileFor(windowClass) : std::string{};
     const auto ICON     = ICONFILE.empty() ? nullptr : loadIcon(ICONFILE, ICONPX);
+    const bool BADGE    = style.icon && !(ICON && ICON->cairo()); // no icon found: a letter badge keeps the pills aligned
 
     auto* const measure = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 1, 1);
     auto* const mcr     = cairo_create(measure);
@@ -284,7 +341,7 @@ SP<Render::ITexture> build(const std::string& title, const std::string& windowCl
     int textW = 0, textH = 0;
     pango_layout_get_pixel_size(layout, &textW, &textH);
 
-    const double ICONW  = ICON ? ICONPX + GAP : 0.0;
+    const double ICONW  = style.icon ? ICONPX + GAP : 0.0;
     const double WIDTH  = std::ceil(PAD * 2 + ICONW + textW);
     auto* const  surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, sc<int>(WIDTH), sc<int>(HEIGHT));
     auto* const  cr      = cairo_create(surface);
@@ -303,7 +360,34 @@ SP<Render::ITexture> build(const std::string& title, const std::string& windowCl
     }
 
     double x = PAD;
-    if (ICON && ICON->cairo()) {
+    if (BADGE) {
+        const char letter[2] = {[&] {
+            for (const unsigned char c : windowClass) {
+                if (std::isalnum(c) && c < 0x80)
+                    return sc<char>(std::toupper(c));
+            }
+            return '?';
+        }(), 0};
+
+        setRgb(cr, accentColor(), 0.9);
+        cairo_arc(cr, x + ICONPX / 2.0, HEIGHT / 2, ICONPX / 2.0, 0, 2 * M_PI);
+        cairo_fill(cr);
+
+        auto* const glyph = pango_cairo_create_layout(cr);
+        auto* const gfont = pango_font_description_from_string(family.c_str());
+        pango_font_description_set_absolute_size(gfont, ICONPX * 0.6 * PANGO_SCALE);
+        pango_font_description_set_weight(gfont, PANGO_WEIGHT_BOLD);
+        pango_layout_set_font_description(glyph, gfont);
+        pango_font_description_free(gfont);
+        pango_layout_set_text(glyph, letter, 1);
+        int gw = 0, gh = 0;
+        pango_layout_get_pixel_size(glyph, &gw, &gh);
+        setRgb(cr, style.bg, 1.0);
+        cairo_move_to(cr, x + (ICONPX - gw) / 2.0, (HEIGHT - gh) / 2.0);
+        pango_cairo_show_layout(cr, glyph);
+        g_object_unref(glyph);
+        x += ICONW;
+    } else if (ICON && ICON->cairo()) {
         const auto SIZE = ICON->size();
         if (SIZE.x > 0 && SIZE.y > 0) {
             const double S = std::min(ICONPX / SIZE.x, ICONPX / SIZE.y);
@@ -341,13 +425,14 @@ std::unordered_map<const void*, SEntry>& cache() {
 }
 
 SP<Render::ITexture> texture(const PHLWINDOW& window, float monitorScale, int fontSize, const ScrollOverview::Config::SLabelStyle& userStyle) {
-    if (!window || window->m_title.empty())
+    if (!window || (window->m_title.empty() && window->m_class.empty()))
         return nullptr;
 
     const int  FONTPX = std::max(6, sc<int>(std::round(fontSize * monitorScale)));
     const auto FAMILY = ScrollOverview::Config::getValue<std::string>("misc:font_family");
     const SStyle STYLE = {
         .icon        = userStyle.icon,
+        .cleanTitle  = userStyle.cleanTitle,
         .radius      = userStyle.radius,
         .bg          = resolveColor(userStyle.background, 0x0d0d12),
         .bgAlpha     = userStyle.backgroundOpacity,
@@ -356,13 +441,16 @@ SP<Render::ITexture> texture(const PHLWINDOW& window, float monitorScale, int fo
         .borderWidth = userStyle.borderWidth,
     };
 
+    // Empty titles show the class; otherwise the app name is trimmed unless the user wants it.
+    const std::string TITLE = window->m_title.empty() ? window->m_class : (STYLE.cleanTitle ? cleanTitle(window->m_title, window->m_class) : window->m_title);
+
     auto&      entries = cache();
     auto&      entry   = entries[window.get()];
-    if (entry.tex && entry.window.lock() == window && entry.title == window->m_title && entry.windowClass == window->m_class && entry.family == FAMILY && entry.fontPx == FONTPX && entry.style == STYLE)
+    if (entry.tex && entry.window.lock() == window && entry.title == TITLE && entry.windowClass == window->m_class && entry.family == FAMILY && entry.fontPx == FONTPX && entry.style == STYLE)
         return entry.tex;
 
     entry.window      = window;
-    entry.title       = window->m_title;
+    entry.title       = TITLE;
     entry.windowClass = window->m_class;
     entry.family      = FAMILY;
     entry.fontPx      = FONTPX;
