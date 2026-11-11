@@ -30,6 +30,12 @@ enum class EScrollAction {
     COLUMN,
 };
 
+enum class EWallpaperLayer {
+    AUTO,
+    BACKGROUND,
+    BOTTOM,
+};
+
 void registerDispatcher(const std::string& name, TDispatcher dispatcher);
 void registerGesture(TGestureRegistrar gestureRegistrar, TGestureKeyword gestureKeyword);
 void registerConfig();
@@ -111,6 +117,7 @@ float         getTouchpadScrollFactor(PHLMONITOR monitor);
 EScrollAction getVerticalScrollAction(ELayout layout, PHLMONITOR monitor);
 EScrollAction getHorizontalScrollAction(ELayout layout, PHLMONITOR monitor);
 int           getWallpaperMode(PHLMONITOR monitor);
+EWallpaperLayer getWallpaperLayer(PHLMONITOR monitor);
 bool          getBlur(PHLMONITOR monitor);
 ::Config::CCssGapData getCssGapData(const std::string& name);
 int          getShadowEnabled(PHLMONITOR monitor);

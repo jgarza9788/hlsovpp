@@ -43,7 +43,7 @@ GLint                    s_texLoc = -1;
 GLuint                   s_vao = 0, s_vbo = 0;
 bool                     s_failed = false;
 SP<Render::IFramebuffer> s_scratch;
-UP<Hyprutils::Utils::CScopeGuard> s_restore; // rebinds the real target
+UP<Render::CTempFramebufferScope> s_restore; // rebinds the real target
 bool                     s_active = false;
 
 bool ensureShader() {
@@ -77,9 +77,9 @@ struct SProjector {
     }
 };
 
-SProjector projector(PHLMONITOR monitor) {
+SProjector projector(Render::CRenderContext& ctx, PHLMONITOR monitor) {
     const Vector2D SIZE = monitor->m_transformedSize;
-    return {g_pHyprRenderer->projectBoxToTarget(CBox{{}, SIZE}).getMatrix(), SIZE};
+    return {g_pHyprRenderer->projectBoxToTarget(ctx, CBox{{}, SIZE}).getMatrix(), SIZE};
 }
 
 }
@@ -88,12 +88,13 @@ bool TiltRender::begin(PHLMONITOR monitor) {
     if (s_active || !monitor || monitor->m_transform != WL_OUTPUT_TRANSFORM_NORMAL || !ensureShader())
         return false;
 
-    const auto TARGET = g_pHyprRenderer->m_renderData.currentFB;
+    auto&      ctx    = g_pHyprRenderer->context();
+    const auto TARGET = ctx.m_data.currentFB;
     if (!TARGET || TARGET->m_size.x < 1 || TARGET->m_size.y < 1)
         return false;
 
     // Whatever is queued belongs to the real target.
-    OverviewRender::flushPass(monitor);
+    OverviewRender::flushPass(ctx, monitor);
 
     if (!s_scratch)
         s_scratch = g_pHyprRenderer->createFB("hlsovpp-tilt");
@@ -106,12 +107,12 @@ bool TiltRender::begin(PHLMONITOR monitor) {
     // target's image description; a fresh framebuffer has none.
     auto desc = TARGET->imageDescription();
     if (!desc)
-        desc = g_pHyprRenderer->workBufferImageDescription();
+        desc = g_pHyprRenderer->workBufferImageDescription(ctx);
     if (!desc)
         return false;
     s_scratch->setImageDescription(desc);
 
-    s_restore = g_pHyprRenderer->bindTempFB(s_scratch);
+    s_restore = makeUnique<Render::CTempFramebufferScope>(*g_pHyprRenderer, ctx, s_scratch);
     Render::GL::g_pHyprOpenGL->setCapStatus(GL_SCISSOR_TEST, false);
     glClearColor(0.F, 0.F, 0.F, 0.F);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -123,12 +124,13 @@ void TiltRender::end(PHLMONITOR monitor, const CBox& card, const Vector2D& axis,
     if (!s_active)
         return;
 
-    OverviewRender::flushPass(monitor); // anything still queued goes into the scratch image
+    auto& ctx = g_pHyprRenderer->context();
+    OverviewRender::flushPass(ctx, monitor); // anything still queued goes into the scratch image
     s_restore.reset();                  // back to the real target
     s_active = false;
 
-    g_pHyprRenderer->m_renderPass.add(makeUnique<CTiltPassElement>(CTiltPassElement::SData{.card = card, .axis = axis, .angle = angle}));
-    OverviewRender::flushPass(monitor); // draw now: the next tilted window reuses the scratch image
+    Render::IHyprRenderer::currentPass(ctx).add(makeUnique<CTiltPassElement>(CTiltPassElement::SData{.card = card, .axis = axis, .angle = angle}));
+    OverviewRender::flushPass(ctx, monitor); // draw now: the next tilted window reuses the scratch image
 }
 
 void TiltRender::destroy() {
@@ -186,8 +188,8 @@ std::array<SCorner, 4> tiltCorners(PHLMONITOR monitor, const CBox& card, const V
 
 }
 
-std::optional<CBox> CTiltPassElement::boundingBox() {
-    const auto MONITOR = g_pHyprRenderer->m_renderData.pMonitor.lock();
+std::optional<CBox> CTiltPassElement::boundingBox(Render::CRenderContext& ctx) {
+    const auto MONITOR = ctx.m_data.pMonitor.lock();
     if (!MONITOR)
         return std::nullopt;
 
@@ -202,12 +204,12 @@ std::optional<CBox> CTiltPassElement::boundingBox() {
     return CBox{minX, minY, maxX - minX, maxY - minY}.scale(1.0 / MONITOR->m_scale).expand(2);
 }
 
-std::vector<UP<IPassElement>> CTiltPassElement::draw() {
-    const auto MONITOR = g_pHyprRenderer->m_renderData.pMonitor.lock();
+std::vector<UP<IPassElement>> CTiltPassElement::draw(Render::CRenderContext& ctx) {
+    const auto MONITOR = ctx.m_data.pMonitor.lock();
     if (!MONITOR || !s_shader || !s_scratch || !s_scratch->getTexture())
         return {};
 
-    const auto PROJ    = projector(MONITOR);
+    const auto PROJ    = projector(ctx, MONITOR);
     const auto CORNERS = tiltCorners(MONITOR, m_data.card, m_data.axis, m_data.angle);
     const std::array<Vector2D, 4> FLAT = {
         Vector2D{m_data.card.x, m_data.card.y},

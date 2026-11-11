@@ -420,6 +420,7 @@ static void defineConfigValues() {
     addValue(makeShared<CIntValue>("plugin:scrolloverview:input:drag_threshold", "overview drag threshold", 10,
                                    SIntValueOptions{.min = 0}));
     addValue(makeShared<CIntValue>("plugin:scrolloverview:wallpaper", "wallpaper mode", 0, SIntValueOptions{.min = 0, .max = 2}));
+    addValue(makeShared<CStringValue>("plugin:scrolloverview:wallpaper_layer", "wallpaper layer detection: auto, background, or bottom", Hyprlang::STRING{"auto"}));
     addValue(makeShared<CBoolValue>("plugin:scrolloverview:blur", "blur the overview wallpaper", false));
     addValue(makeShared<CBoolValue>("plugin:scrolloverview:shadow:enabled", "draw a shadow around each workspace card", false));
     addValue(makeShared<CIntValue>("plugin:scrolloverview:shadow:range", "workspace card shadow range", -1));
@@ -543,6 +544,16 @@ int getWallpaperMode(PHLMONITOR monitor) {
     return std::clamp<int>(getValue<int>("plugin:scrolloverview:wallpaper", monitor), 0, 2);
 }
 
+EWallpaperLayer getWallpaperLayer(PHLMONITOR monitor) {
+    const auto LAYER = getValue<std::string>("plugin:scrolloverview:wallpaper_layer", monitor);
+    if (LAYER == "background")
+        return EWallpaperLayer::BACKGROUND;
+    if (LAYER == "bottom")
+        return EWallpaperLayer::BOTTOM;
+
+    return EWallpaperLayer::AUTO;
+}
+
 bool getBlur(PHLMONITOR monitor) {
     return getValue<bool>("plugin:scrolloverview:blur", monitor);
 }
@@ -574,7 +585,7 @@ int getShadowRenderPower(PHLMONITOR monitor) {
 std::optional<::Config::CGradientValueData> getShadowColor(PHLMONITOR monitor) {
     constexpr auto NAME = "plugin:scrolloverview:shadow:color";
 
-    if (!monitorValueData(NAME, monitor) && !::Config::mgr()->getConfigValue(NAME).setByUser)
+    if (!monitorValueData(NAME, monitor) && !valueRef<::Config::IComplexConfigValue>(NAME).setByUser())
         return std::nullopt;
 
     return getValue<::Config::CGradientValueData>(NAME, monitor);

@@ -44,18 +44,18 @@ class CTiltPassElement : public IPassElement {
     explicit CTiltPassElement(const SData& data);
     ~CTiltPassElement() override = default;
 
-    std::vector<UP<IPassElement>> draw() override;
-    bool                          needsLiveBlur() override {
+    std::vector<UP<IPassElement>> draw(Render::CRenderContext& ctx) override;
+    bool                          needsLiveBlur(Render::CRenderContext& ctx) override {
         return false;
     }
-    bool needsPrecomputeBlur() override {
+    bool needsPrecomputeBlur(Render::CRenderContext& ctx) override {
         return false;
     }
-    std::optional<CBox> boundingBox() override;
-    CRegion             opaqueRegion() override {
+    std::optional<CBox> boundingBox(Render::CRenderContext& ctx) override;
+    CRegion             opaqueRegion(Render::CRenderContext& ctx) override {
         return {};
     }
-    bool disableSimplification() override {
+    bool disableSimplification(Render::CRenderContext& ctx) override {
         return true;
     }
     const char* passName() override {
