@@ -1,5 +1,6 @@
 import QtQuick
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 
 // One setting: label + description on the left, its control on the right.
@@ -10,8 +11,8 @@ Item {
 
   required property var item
   property var value
-  property color foreground: Color.foreground
-  property color accent: Color.accent
+  property color foreground: Commons.Color.foreground
+  property color accent: Commons.Color.accent
   property color swatch: "transparent"   // color rows only (unused by hlsovpp)
   property string fontFamily: Style.font.family
   property bool hasCursor: false            // keyboard cursor is on this row
