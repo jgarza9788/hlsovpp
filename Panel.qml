@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "Model.js" as Model
 
@@ -34,10 +35,10 @@ Item {
   readonly property var rows: Model.rowsFor(section, settings)
   onRowsChanged: if (cursorIndex >= rows.length) cursorIndex = Math.max(0, rows.length - 1)
 
-  property color background: Color.menu.background
-  property color foreground: Color.menu.text
-  property color accent: Color.accent
-  property color scrim: Color.menu.scrim
+  property color background: Commons.Color.menu.background
+  property color foreground: Commons.Color.menu.text
+  property color accent: Commons.Color.accent
+  property color scrim: Commons.Color.menu.scrim
   property string fontFamily: Style.font.menuFamily
 
   // -------------------------------------------------------------- lifecycle
@@ -235,7 +236,7 @@ Item {
       height: Math.min(Style.space(600), window.height - Style.gapsOut * 4)
       radius: Style.cornerRadius
       color: root.background
-      borderSpec: Border.surfaceSpec("menu", "border", Color.menu.border, Math.max(1, Style.space(2)))
+      borderSpec: Border.surfaceSpec("menu", "border", Commons.Color.menu.border, Math.max(1, Style.space(2)))
       padding: Style.spacing.panelPadding
 
       MouseArea { anchors.fill: parent; onClicked: {} }
@@ -298,7 +299,7 @@ Item {
               text: root.pluginLoaded
                 ? "~/.config/hypr/hlsovpp.lua · fork of yayuuu/hyprland-scroll-overview"
                 : "Native plugin not loaded. Run ./install in the plugin folder (or: hyprpm update)"
-              color: root.pluginLoaded ? Qt.darker(root.foreground, 1.6) : Color.urgent
+              color: root.pluginLoaded ? Qt.darker(root.foreground, 1.6) : Commons.Color.urgent
               font.family: root.fontFamily
               font.pixelSize: Style.font.caption
             }
@@ -391,7 +392,7 @@ Item {
         Text {
           Layout.fillWidth: true
           text: root.errorText !== "" ? root.errorText : "Tab: section · ↑↓/jk: row · ←→/hl: change · Enter: toggle · ⌫: reset row · T: preview · Esc: close"
-          color: root.errorText !== "" ? Color.urgent : Qt.darker(root.foreground, 1.6)
+          color: root.errorText !== "" ? Commons.Color.urgent : Qt.darker(root.foreground, 1.6)
           font.family: root.fontFamily
           font.pixelSize: Style.font.caption
           wrapMode: Text.WordWrap
