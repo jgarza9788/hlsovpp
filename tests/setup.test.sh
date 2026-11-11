@@ -106,6 +106,19 @@ fresh "$LUA_STOCK" "$MENU_TRAILING"; run_i
 jsonc_valid "$M"; ok "menu valid when last entry has a // comment" $?
 grep -q '// a game' "$M"; ok "trailing comment kept" $?
 
+# Omarchy accepts trailing commas, including nested objects and arrays.
+MENU_COMMAS=$'{\n  "personal": {"label":"literal ,} and ,]", "items":["x",],}, // keep\n}\n'
+fresh "$LUA_STOCK" "$MENU_COMMAS"; run_i
+grep -q '"hlsovpp"' "$M"; ok "install accepts JSONC trailing commas" $?
+grep -Fq '"personal": {"label":"literal ,} and ,]", "items":["x",],}, // keep' "$M"; ok "user entries and comments preserved" $?
+before=$(cat "$M"); run_i
+[[ "$(cat "$M")" == "$before" ]]; ok "JSONC reinstall is idempotent" $?
+run_u
+! grep -q hlsovpp "$M" && grep -Fq '"items":["x",],}' "$M"; ok "uninstall accepts nested trailing commas" $?
+fresh "$LUA_STOCK" $'{\n  "bad": [1,,2],\n}\n'
+before=$(cat "$M"); run_i
+[[ "$(cat "$M")" == "$before" ]]; ok "invalid commas remain rejected" $?
+
 fresh "$LUA_STOCK" "$MENU_ENTRIES"; run_i --no-menu
 ! grep -q hlsovpp "$M"; ok "--no-menu leaves the menu alone" $?
 
