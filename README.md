@@ -6,7 +6,7 @@
 > Please star and report overview bugs upstream. This fork adds:
 >
 > - **Per-window motion**: windows move independently when the overview opens and closes, instead of all zooming together
-> - **Omarchy packaging**: one-command install, a settings panel (Omarchy menu > Style > Scroll Overview) and a Lua settings file
+> - **Omarchy packaging**: one-command install, a settings panel (Omarchy menu > Appearance > Scroll Overview) and a Lua settings file
 
 The internal plugin name is still `scrolloverview`, so existing configs, binds
 (`hl.plugin.scrolloverview.overview("toggle all")`) and upstream docs all apply
