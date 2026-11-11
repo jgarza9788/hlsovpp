@@ -62,7 +62,7 @@ import re, sys
 mode, path, write = sys.argv[1], sys.argv[2], sys.argv[3] == "1"
 BEGIN, END = "-- >>> hlsovpp >>>", "-- <<< hlsovpp <<<"
 BLOCK = [BEGIN,
-         "-- Scroll overview (hlsovpp). Settings: Omarchy menu > Style > Scroll Overview",
+         "-- Scroll overview (hlsovpp). Settings: Omarchy menu > Appearance > Scroll Overview",
          'require("hypr.hlsovpp")',
          END]
 LEGACY_COMMENT = re.compile(r'^(?!)')  # no legacy form
@@ -116,10 +116,10 @@ ACTION = "omarchy-shell shell toggle jgarza.hlsovpp '{}'"
 ENTRIES = [
     '"hlsovpp": {"icon":"󰕰","label":"Scroll Overview","aliases":["hlsovpp","overview","scroll overview","expose","workspaces overview"],'
     '"description":"Scroll overview settings: motion style, scale, layout","action":"' + ACTION + '"}',
-    '"style.hlsovpp": {"icon":"󰕰","label":"Scroll Overview","description":"Scroll overview settings: motion style, scale, layout",'
+    '"appearance.hlsovpp": {"icon":"󰕰","label":"Scroll Overview","description":"Scroll overview settings: motion style, scale, layout",'
     '"action":"' + ACTION + '"}',
 ]
-KEY = re.compile(r'^\s*"(style\.)?hlsovpp"\s*:')
+KEY = re.compile(r'^\s*"((?:style|appearance)\.)?hlsovpp"\s*:')
 
 def strip_comments(t):
     out, i, n, in_str = [], 0, len(t), False
@@ -154,7 +154,16 @@ close = max(i for i, l in enumerate(lines) if code_part(l).strip() == "}")
 
 if mode == "install":
     if any(KEY.match(l) for l in lines):
-        print("unchanged"); sys.exit(0)
+        # Move existing installs too; keep customized entry values intact.
+        if not any(re.match(r'^\s*"appearance\.hlsovpp"\s*:', l) for l in lines):
+            lines = [re.sub(r'^(\s*)"style\.hlsovpp"(\s*:)',
+                            r'\1"appearance.hlsovpp"\2', l) for l in lines]
+        new = "\n".join(lines)
+        if not valid(new):
+            print("invalid-result"); sys.exit(0)
+        if write and new != text:
+            open(path, "w").write(new)
+        print("changed" if new != text else "unchanged"); sys.exit(0)
     prev = next((i for i in range(close - 1, -1, -1) if code_part(lines[i]).strip() not in ("", "{")), None)
     if prev is not None and not code_part(lines[prev]).endswith(","):
         cp = code_part(lines[prev])
@@ -272,7 +281,7 @@ do_install() {
     step "Omarchy menu entries"
     if [[ -f $MENU_FILE ]]; then
       res=$(apply edit_menu install "$MENU_FILE")
-      report "$res" "$MENU_FILE" "Scroll Overview + Style > Scroll Overview" "has them"
+      report "$res" "$MENU_FILE" "Scroll Overview + Appearance > Scroll Overview" "has them"
     else
       skip "no $MENU_FILE (not Omarchy, or menu extensions unused) - skipped"
     fi
@@ -295,7 +304,7 @@ do_install() {
     sleep 1
     if hyprctl plugin list 2>/dev/null | grep -q "Plugin $PLUGIN"; then
       ok "Scroll overview is running. Open it with your overview bind, e.g. hl.plugin.$PLUGIN.overview(\"toggle all\")"
-      have omarchy-plugin-enable && ok "Settings: Omarchy menu > Style > Scroll Overview (or search \"overview\")"
+      have omarchy-plugin-enable && ok "Settings: Omarchy menu > Appearance > Scroll Overview (or search \"overview\")"
     else
       warn "the plugin didn't load; check: hyprpm list   and   hyprctl plugin list"
     fi

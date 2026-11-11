@@ -96,7 +96,7 @@ grep -q 'mine = true' "$H/hlsovpp.lua"; ok "existing settings kept" $?
 # ── install: menu ────────────────────────────────────────────────────────────
 fresh "$LUA_STOCK" "$MENU_EMPTY"; run_i
 jsonc_valid "$M"; ok "menu valid after install (empty menu)" $?
-grep -q '"style.hlsovpp"' "$M" && grep -q '"hlsovpp"' "$M"; ok "menu entries added" $?
+grep -q '"appearance.hlsovpp"' "$M" && grep -q '"hlsovpp"' "$M"; ok "menu entries added" $?
 
 fresh "$LUA_STOCK" "$MENU_ENTRIES"; run_i
 jsonc_valid "$M"; ok "menu valid after install (existing entries)" $?
@@ -105,6 +105,14 @@ grep -q '"loadout"' "$M" && grep -q '"wallsync"' "$M"; ok "existing menu entries
 fresh "$LUA_STOCK" "$MENU_TRAILING"; run_i
 jsonc_valid "$M"; ok "menu valid when last entry has a // comment" $?
 grep -q '// a game' "$M"; ok "trailing comment kept" $?
+
+fresh "$LUA_STOCK" $'{\n  "hlsovpp": {"label":"root"},\n  "style.hlsovpp": {"label":"custom"}\n}\n'
+before=$(cat "$M"); run_i --dry-run
+[[ "$(cat "$M")" == "$before" ]]; ok "menu migration honors dry run" $?
+run_i
+grep -q '"appearance.hlsovpp": {"label":"custom"}' "$M" && ! grep -q '"style.hlsovpp"' "$M"; ok "existing submenu moves with custom values intact" $?
+before=$(cat "$M"); run_i
+[[ "$(cat "$M")" == "$before" ]]; ok "menu migration is idempotent" $?
 
 fresh "$LUA_STOCK" "$MENU_ENTRIES"; run_i --no-menu
 ! grep -q hlsovpp "$M"; ok "--no-menu leaves the menu alone" $?
@@ -141,7 +149,7 @@ same "$H/hyprland.lua" "$LUA_NOPLUGINS"; ok "appended require round-trips exactl
 same "$M" "$MENU_EMPTY"; ok "empty menu round-trips exactly" $?
 
 fresh $'require("hypr.plugins")\nrequire("hypr.hlsovpp")\n' \
-  $'{\n  "loadout": {"a":1},\n  "hlsovpp": {"label":"x"},\n  "style.hlsovpp": {"label":"x"},\n  "pinball": {"b":2}\n}\n'
+  $'{\n  "loadout": {"a":1},\n  "hlsovpp": {"label":"x"},\n  "appearance.hlsovpp": {"label":"x"},\n  "style.hlsovpp": {"label":"old"},\n  "pinball": {"b":2}\n}\n'
 run_u
 ! grep -q hlsovpp "$H/hyprland.lua"; ok "unfenced require removed" $?
 jsonc_valid "$M" && ! grep -q hlsovpp "$M" && grep -q pinball "$M"; ok "unfenced menu entries removed" $?
