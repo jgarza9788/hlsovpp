@@ -106,7 +106,7 @@ PY
 }
 
 # edit_menu install|uninstall FILE WRITE(0|1) -> "changed" / "unchanged";
-# refuses to write anything that isn't valid JSON once comments are stripped.
+# accepts JSONC comments and trailing commas without rewriting user entries.
 edit_menu() {
   python3 - "$1" "$2" "$3" <<'PY'
 import json, re, sys
@@ -140,7 +140,10 @@ def strip_comments(t):
     return "".join(out)
 
 def valid(t):
-    try: return isinstance(json.loads(strip_comments(t)), dict)
+    # Match strings first so commas inside labels/actions stay untouched.
+    t = re.sub(r'"(?:\\.|[^"\\])*"|,(?=\s*[}\]])',
+               lambda m: "" if m.group() == "," else m.group(), strip_comments(t))
+    try: return isinstance(json.loads(t), dict)
     except Exception: return False
 
 def code_part(line):  # line without a trailing // comment (outside strings)
