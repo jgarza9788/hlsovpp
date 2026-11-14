@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -114,7 +115,7 @@ std::string gtkIconTheme() {
 std::string findIconFile(const std::string& name) {
     std::error_code ec;
     if (name.starts_with("/"))
-        return fs::exists(name, ec) ? name : "";
+        return fs::is_regular_file(name, ec) ? name : "";
 
     std::vector<std::string> themes;
     if (const auto theme = gtkIconTheme(); !theme.empty())
@@ -160,11 +161,36 @@ std::string iconFileFor(const std::string& windowClass) {
     std::string file;
     if (const auto it = desktopEntries().find(KEY); it != desktopEntries().end())
         file = findIconFile(it->second.icon);
-    if (file.empty())
+    // The window class is client-controlled: only a plain icon name may be
+    // looked up from it, never a path (absolute paths come only from the
+    // user's own .desktop entries above).
+    if (file.empty() && KEY.find('/') == std::string::npos && !KEY.starts_with("."))
         file = findIconFile(KEY);
 
     cache.emplace(KEY, file);
     return file;
+}
+
+// Icons are decoded inside the compositor, so refuse files that could be a
+// decompression bomb: a size cap, and for PNGs the IHDR dimensions (the loader
+// allocates width * height * 4 before scaling).
+bool iconFileIsSafe(const std::string& path) {
+    constexpr uintmax_t MAXBYTES = 8 * 1024 * 1024;
+    constexpr uint64_t  MAXSIDE  = 4096;
+    std::error_code     ec;
+    if (!fs::is_regular_file(path, ec) || fs::file_size(path, ec) > MAXBYTES)
+        return false;
+    std::ifstream f(path, std::ios::binary);
+    unsigned char h[24] = {};
+    if (!f.read(reinterpret_cast<char*>(h), sizeof(h)))
+        return path.ends_with(".svg"); // too short for PNG: only SVG can be that small and valid
+    static const unsigned char PNGSIG[8] = {0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n'};
+    if (std::equal(PNGSIG, PNGSIG + 8, h)) {
+        const uint64_t W = (uint64_t(h[16]) << 24) | (h[17] << 16) | (h[18] << 8) | h[19];
+        const uint64_t H = (uint64_t(h[20]) << 24) | (h[21] << 16) | (h[22] << 8) | h[23];
+        return W > 0 && H > 0 && W <= MAXSIDE && H <= MAXSIDE;
+    }
+    return !path.ends_with(".png"); // a ".png" that isn't one is not decoded
 }
 
 SP<Hyprgraphics::CCairoSurface> loadIcon(const std::string& path, int px) {
@@ -175,9 +201,11 @@ SP<Hyprgraphics::CCairoSurface> loadIcon(const std::string& path, int px) {
         return it->second;
 
     SP<Hyprgraphics::CCairoSurface> surface;
-    Hyprgraphics::CImage            image(path, {sc<double>(px), sc<double>(px)});
-    if (image.success())
-        surface = image.cairoSurface();
+    if (iconFileIsSafe(path)) {
+        Hyprgraphics::CImage image(path, {sc<double>(px), sc<double>(px)});
+        if (image.success())
+            surface = image.cairoSurface();
+    }
 
     cache.emplace(KEY, surface);
     return surface;

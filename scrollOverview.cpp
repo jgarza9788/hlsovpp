@@ -5996,6 +5996,10 @@ bool CScrollOverview::dispatchSubmapMouseClick(uint32_t button) {
     // Keep the callback alive if it removes its own binding.
     const auto BIND = *KEYBIND;
 
+    // Respect Hyprland's session-lock rules (only `locked` binds may run).
+    if (!Keybinds::mgr()->canInvokeNow(BIND))
+        return false;
+
     auto&      actionState          = *Config::Actions::state();
     const int PREVIOUSPASSPRESSED   = actionState.m_passPressed;
     const int PREVIOUSDEPTH         = actionState.m_bindInvocationDepth;

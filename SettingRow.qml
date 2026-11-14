@@ -24,8 +24,8 @@ Item {
 
   // Keyboard: Enter on a text or color row edits its field.
   function editField() {
-    if (isText) textField.forceActiveFocus()
-    else if (isColor) colorField.forceActiveFocus()
+    if (isText && textLoader.item) textLoader.item.forceActiveFocus()
+    else if (isColor && colorLoader.item) colorLoader.item.forceActiveFocus()
   }
 
   // Differs from the schema default -> show the reset button and the pip.
@@ -238,16 +238,22 @@ Item {
           anchors.verticalCenter: parent.verticalCenter
         }
 
-        TextField {
-          id: colorField
-          width: Style.space(130)
-          text: root.isPresetColor ? "" : String(root.value)
-          placeholderText: "#rrggbb"
-          foreground: root.foreground
-          accent: root.accent
-          onAccepted: { root.committed(text); root.doneEditing() }
-          onEditingFinished: if (text !== "" && text !== String(root.value)) root.committed(text)
-          Keys.onEscapePressed: root.doneEditing()
+        // Only instantiated for color rows: a native text field on a hidden
+        // row still listens to the Wayland clipboard.
+        Loader {
+          id: colorLoader
+          active: root.isColor
+          anchors.verticalCenter: parent.verticalCenter
+          sourceComponent: TextField {
+            width: Style.space(130)
+            text: root.isPresetColor ? "" : String(root.value)
+            placeholderText: "#rrggbb"
+            foreground: root.foreground
+            accent: root.accent
+            onAccepted: { root.committed(text); root.doneEditing() }
+            onEditingFinished: if (text !== "" && text !== String(root.value)) root.committed(text)
+            Keys.onEscapePressed: root.doneEditing()
+          }
         }
       }
 
@@ -261,18 +267,21 @@ Item {
       }
     }
 
-    TextField {
-      id: textField
+    Loader {
+      id: textLoader
+      active: root.isText
       visible: root.isText
-      width: root.item.type === "text" ? Style.space(220) : Style.space(130)
-      text: root.isText ? String(root.value) : ""
-      placeholderText: root.item.placeholder || ""
-      foreground: root.foreground
-      accent: root.accent
       anchors.verticalCenter: parent.verticalCenter
-      onAccepted: { root.committed(text); root.doneEditing() }
-      onEditingFinished: if (text !== String(root.value)) root.committed(text)
-      Keys.onEscapePressed: root.doneEditing()
+      sourceComponent: TextField {
+        width: root.item.type === "text" ? Style.space(220) : Style.space(130)
+        text: String(root.value)
+        placeholderText: root.item.placeholder || ""
+        foreground: root.foreground
+        accent: root.accent
+        onAccepted: { root.committed(text); root.doneEditing() }
+        onEditingFinished: if (text !== String(root.value)) root.committed(text)
+        Keys.onEscapePressed: root.doneEditing()
+      }
     }
   }
 }
