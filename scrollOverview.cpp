@@ -13,6 +13,7 @@
 #include <state/WorkspaceState.hpp>
 #define private public
 #define protected public
+#include <hyprland/src/managers/SessionLockManager.hpp>
 #include <hyprland/src/render/Renderer.hpp>
 #include <hyprland/src/Compositor.hpp>
 #include <hyprland/src/config/ConfigValue.hpp>
@@ -5761,6 +5762,10 @@ bool CScrollOverview::dispatchSubmapMouseClick(uint32_t button) {
     const auto DISPATCHERNAME = (*KEYBIND)->mouse ? "mouse" : (*KEYBIND)->handler;
     const auto DISPATCHER     = g_pKeybindManager->m_dispatchers.find(DISPATCHERNAME);
     if (DISPATCHER == g_pKeybindManager->m_dispatchers.end())
+        return false;
+
+    // Respect Hyprland's session-lock rules (only `locked` binds may run).
+    if (g_pSessionLockManager && g_pSessionLockManager->isSessionLocked() && !(*KEYBIND)->locked)
         return false;
 
     const auto PREVIOUSKEYBIND = g_pKeybindManager->m_currentKeybind;
