@@ -1,9 +1,14 @@
 # hlsovpp: fork of https://github.com/yayuuu/hyprland-scroll-overview
 # Upstream's commit_pins point at upstream commits, so they're not carried
-# over; this fork tracks current Hyprland releases from main.
+# over; this fork tracks current Hyprland releases from main (0.57+).
+# Older Hyprland releases are pinned to the branch that still builds on them.
 [repository]
 name = "hlsovpp"
 authors = ["jgarza", "yayuuu"]
+commit_pins = [
+    # Hyprland                                  hlsovpp
+    ["efb50993780079460b0cbed1363e2166a2de1d9f", "26ab4078aec7225ee1fe1f4106246b3a8b567cbe"], # v0.56.2 (branch hyprland-0.56)
+]
 
 [scrolloverview]
 description = "ScrollOverview (fork) with per-window motion: windows ripple, converge or sweep into the overview."
