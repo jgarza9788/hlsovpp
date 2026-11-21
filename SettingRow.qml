@@ -238,13 +238,13 @@ Item {
           anchors.verticalCenter: parent.verticalCenter
         }
 
-        // Only instantiated for color rows: a native text field on a hidden
-        // row still listens to the Wayland clipboard.
+        // Only instantiated for color rows. SafeField never reads the clipboard
+        // on its own (see SafeField.qml).
         Loader {
           id: colorLoader
           active: root.isColor
           anchors.verticalCenter: parent.verticalCenter
-          sourceComponent: TextField {
+          sourceComponent: SafeField {
             width: Style.space(130)
             text: root.isPresetColor ? "" : String(root.value)
             placeholderText: "#rrggbb"
@@ -272,7 +272,7 @@ Item {
       active: root.isText
       visible: root.isText
       anchors.verticalCenter: parent.verticalCenter
-      sourceComponent: TextField {
+      sourceComponent: SafeField {
         width: root.item.type === "text" ? Style.space(220) : Style.space(130)
         text: String(root.value)
         placeholderText: root.item.placeholder || ""
