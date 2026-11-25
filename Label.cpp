@@ -329,6 +329,7 @@ struct SEntry {
     PHLWINDOWREF         window;
     std::string          title, windowClass, family;
     int                  fontPx = 0;
+    int                  maxW   = 0;
     SStyle               style;
     SP<Render::ITexture> tex;
 };
@@ -342,7 +343,7 @@ void roundedRect(cairo_t* cr, double x, double y, double w, double h, double r) 
     cairo_close_path(cr);
 }
 
-SP<Render::ITexture> build(const std::string& title, const std::string& windowClass, const std::string& family, int fontPx, const SStyle& style) {
+SP<Render::ITexture> build(const std::string& title, const std::string& windowClass, const std::string& family, int fontPx, int maxW, const SStyle& style) {
     const double PAD     = fontPx * 0.7;
     const double GAP     = fontPx * 0.5;
     const int    ICONPX  = std::max(8, sc<int>(std::round(fontPx * 1.5)));
@@ -361,8 +362,11 @@ SP<Render::ITexture> build(const std::string& title, const std::string& windowCl
     pango_font_description_set_absolute_size(font, fontPx * PANGO_SCALE);
     pango_layout_set_font_description(layout, font);
     pango_font_description_free(font);
-    pango_layout_set_text(layout, title.c_str(), -1);
-    pango_layout_set_width(layout, MAXTEXT * PANGO_SCALE);
+    const int    AVAIL    = sc<int>(maxW - 2 * PAD - (style.icon ? ICONPX + GAP : 0.0));
+    const int    MINTEXT  = fontPx * 3;
+    const bool   ICONONLY = style.icon && AVAIL < MINTEXT; // no room for a useful snippet: icon alone
+    pango_layout_set_text(layout, ICONONLY ? "" : title.c_str(), -1);
+    pango_layout_set_width(layout, std::clamp(AVAIL, MINTEXT, MAXTEXT) * PANGO_SCALE);
     pango_layout_set_ellipsize(layout, PANGO_ELLIPSIZE_END);
     pango_layout_set_single_paragraph_mode(layout, true);
 
@@ -370,7 +374,7 @@ SP<Render::ITexture> build(const std::string& title, const std::string& windowCl
     pango_layout_get_pixel_size(layout, &textW, &textH);
 
     const double ICONW  = style.icon ? ICONPX + GAP : 0.0;
-    const double WIDTH  = std::ceil(PAD * 2 + ICONW + textW);
+    const double WIDTH  = ICONONLY ? std::ceil(PAD * 2 + ICONPX) : std::ceil(PAD * 2 + ICONW + textW);
     auto* const  surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, sc<int>(WIDTH), sc<int>(HEIGHT));
     auto* const  cr      = cairo_create(surface);
 
@@ -452,10 +456,11 @@ std::unordered_map<const void*, SEntry>& cache() {
 
 }
 
-SP<Render::ITexture> texture(const PHLWINDOW& window, float monitorScale, int fontSize, const ScrollOverview::Config::SLabelStyle& userStyle) {
+SP<Render::ITexture> texture(const PHLWINDOW& window, float monitorScale, int fontSize, const ScrollOverview::Config::SLabelStyle& userStyle, float maxWidth) {
     if (!window || (window->m_title.empty() && window->m_class.empty()))
         return nullptr;
 
+    const int  MAXW   = std::max(0, sc<int>(maxWidth / 24.F)) * 24; // bucketed: card widths animate
     const int  FONTPX = std::max(6, sc<int>(std::round(fontSize * monitorScale)));
     const auto FAMILY = ScrollOverview::Config::getValue<std::string>("misc:font_family");
     const SStyle STYLE = {
@@ -486,7 +491,7 @@ SP<Render::ITexture> texture(const PHLWINDOW& window, float monitorScale, int fo
 
     auto&      entries = cache();
     auto&      entry   = entries[window.get()];
-    if (entry.tex && entry.window.lock() == window && entry.title == text && entry.windowClass == window->m_class && entry.family == FAMILY && entry.fontPx == FONTPX && entry.style == STYLE)
+    if (entry.tex && entry.window.lock() == window && entry.title == text && entry.windowClass == window->m_class && entry.family == FAMILY && entry.fontPx == FONTPX && entry.maxW == MAXW && entry.style == STYLE)
         return entry.tex;
 
     entry.window      = window;
@@ -494,8 +499,9 @@ SP<Render::ITexture> texture(const PHLWINDOW& window, float monitorScale, int fo
     entry.windowClass = window->m_class;
     entry.family      = FAMILY;
     entry.fontPx      = FONTPX;
+    entry.maxW        = MAXW;
     entry.style       = STYLE;
-    entry.tex         = build(entry.title, entry.windowClass, FAMILY, FONTPX, STYLE);
+    entry.tex         = build(entry.title, entry.windowClass, FAMILY, FONTPX, MAXW, STYLE);
 
     // Windows come and go while the overview stays open.
     if (entries.size() > 64)

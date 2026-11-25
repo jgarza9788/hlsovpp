@@ -837,7 +837,7 @@ static void renderOverviewLabel(PHLMONITOR monitor, const PHLWINDOW& window, con
         return;
 
     const auto STYLE = ScrollOverview::Config::getLabelStyle(monitor);
-    const auto tex   = OverviewLabel::texture(window, sc<float>(monitor->m_scale), ScrollOverview::Config::getLabelFontSize(monitor), STYLE);
+    const auto tex   = OverviewLabel::texture(window, sc<float>(monitor->m_scale), ScrollOverview::Config::getLabelFontSize(monitor), STYLE, sc<float>(windowBox.width * 0.9));
     if (!tex || !tex->ok() || tex->m_size.x < 1 || tex->m_size.y < 1)
         return;
 
