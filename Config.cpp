@@ -433,8 +433,8 @@ static void defineConfigValues() {
     addValue(makeShared<CBoolValue>("plugin:scrolloverview:motion:rewind_on_close", "closing replays the opening order backwards", true));
     addValue(makeShared<CFloatValue>("plugin:scrolloverview:motion:tilt", "peak 3D tilt (degrees) while a window is moving: 0 = off, positive leans into the move, negative away", 0.F,
                                      SFloatValueOptions{.min = -45.F, .max = 45.F}));
-    addValue(makeShared<CFloatValue>("plugin:scrolloverview:motion:speed", "overview animation speed relative to windowsMove: 0 = same, +1 = 2x faster, -1 = 2x slower", 0.F,
-                                     SFloatValueOptions{.min = -Motion::MAX_SPEED, .max = Motion::MAX_SPEED}));
+    addValue(makeShared<CFloatValue>("plugin:scrolloverview:motion:speed", "overview open/close animation duration in ms: 0 = no animation", Motion::DEFAULT_DURATION_MS,
+                                     SFloatValueOptions{.min = 0.F, .max = Motion::MAX_DURATION_MS}));
     addValue(makeShared<CStringValue>("plugin:scrolloverview:motion:easing", "overview animation curve, follow = windowsMove's bezier", Hyprlang::STRING{"follow"}));
     addValue(makeShared<CBoolValue>("plugin:scrolloverview:labels:enabled", "show each window's icon and title, fading in as the windows move back", true));
     addValue(makeShared<CIntValue>("plugin:scrolloverview:labels:font_size", "window label font size", 13, SIntValueOptions{.min = 6, .max = 48}));
@@ -596,7 +596,7 @@ bool getMotionOriginCursor(PHLMONITOR monitor) {
 }
 
 float getMotionSpeed(PHLMONITOR monitor) {
-    return std::clamp(getValue<float>("plugin:scrolloverview:motion:speed", monitor), -Motion::MAX_SPEED, Motion::MAX_SPEED);
+    return std::clamp(getValue<float>("plugin:scrolloverview:motion:speed", monitor), 0.F, Motion::MAX_DURATION_MS);
 }
 
 std::string getMotionEasing(PHLMONITOR monitor) {

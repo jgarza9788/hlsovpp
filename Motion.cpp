@@ -193,11 +193,11 @@ float windowProgress(const SParams& params, float percent, float delay, const st
     return std::isfinite(VALUE) ? VALUE : T;
 }
 
-float scaledDuration(float baseDuration, float speed) {
-    if (!std::isfinite(speed))
-        return baseDuration;
+float durationToSpeedUnits(float durationMs) {
+    if (!std::isfinite(durationMs))
+        durationMs = DEFAULT_DURATION_MS;
 
-    return baseDuration * std::exp2(-std::clamp(speed, -MAX_SPEED, MAX_SPEED));
+    return std::clamp(durationMs, 0.F, MAX_DURATION_MS) / 100.F;
 }
 
 float tiltAngle(float progress, float tiltDegrees) {

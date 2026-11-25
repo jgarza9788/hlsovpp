@@ -1055,18 +1055,18 @@ CScrollOverview::CScrollOverview(PHLWORKSPACE startedOn_, bool swipe_, PHLMONITO
     workspaceRemoveFadeConfig->internalStyle   = WINDOWSMOVEVALUES ? WINDOWSMOVEVALUES->internalStyle : "";
     workspaceRemoveFadeConfig->pValues         = workspaceRemoveFadeConfig;
 
-    // hlsovpp: motion:speed / motion:easing give the open/close animation its
-    // own speed and curve; otherwise it follows windowsMove as upstream does.
+    // hlsovpp: motion:speed (ms, 0 = no animation) and motion:easing give the
+    // open/close animation its own duration and curve.
     const auto MOTIONMONITOR = pMonitor.lock();
     const auto MOTIONSPEED   = ScrollOverview::Config::getMotionSpeed(MOTIONMONITOR);
     const auto MOTIONEASING  = Motion::findEasing(ScrollOverview::Config::getMotionEasing(MOTIONMONITOR));
     auto       OVERVIEWCONFIG = WINDOWSMOVECONFIG;
-    if (MOTIONSPEED != 0.F || MOTIONEASING) {
+    {
         overviewAnimConfig                  = makeShared<Hyprutils::Animation::SAnimationPropertyConfig>();
         overviewAnimConfig->overridden      = true;
         overviewAnimConfig->internalBezier  = WINDOWSMOVEVALUES ? WINDOWSMOVEVALUES->internalBezier : "default";
-        overviewAnimConfig->internalSpeed   = Motion::scaledDuration(WINDOWSMOVEVALUES ? WINDOWSMOVEVALUES->internalSpeed : 5.F, MOTIONSPEED);
-        overviewAnimConfig->internalEnabled = WINDOWSMOVEVALUES ? WINDOWSMOVEVALUES->internalEnabled : 1;
+        overviewAnimConfig->internalSpeed   = std::max(Motion::durationToSpeedUnits(MOTIONSPEED), 0.01F);
+        overviewAnimConfig->internalEnabled = (MOTIONSPEED > 0.F && (!WINDOWSMOVEVALUES || WINDOWSMOVEVALUES->internalEnabled)) ? 1 : 0;
         overviewAnimConfig->internalStyle   = WINDOWSMOVEVALUES ? WINDOWSMOVEVALUES->internalStyle : "";
         overviewAnimConfig->pValues         = overviewAnimConfig;
         if (MOTIONEASING) {

@@ -98,7 +98,7 @@ hl.config({ plugin = { scrolloverview = {
     origin = "focus",       -- ripple/converge: "focus" or "cursor"
     direction = "forward",  -- sweep: "forward" or "reverse"
     easing = "follow",      -- follow (windowsMove's bezier), smooth, snappy, bouncy
-    speed = 0,              -- vs windowsMove: 0 same, +1 2x faster, -1 2x slower, -4 - 4
+    speed = 666,            -- open/close duration in ms: 0 = no animation, max 1500
     tilt = 0,               -- degrees of 3D lean mid-flight: 0 off, + into the move, - away, -45 - 45
     rewind_on_close = true, -- closing plays the opening order backwards
     on_gesture = false,     -- also stagger while a touchpad swipe drives it
@@ -118,8 +118,8 @@ hl.config({ plugin = { scrolloverview = {
 lands flat. Positive values lean into the move, negative values lean away. It's drawn flat and then projected in
 perspective, so its border, shadow and decorations tilt with it.
 
-**Easing** and **speed** set the overview's own open/close curve and duration;
-`follow` and speed `0` use the `windowsMove` animation's. For a landing that overshoots a little, use `bouncy`.
+**Easing** and **speed** set the overview's own open/close curve and duration (in ms; `0` turns the animation off);
+`follow` easing uses the `windowsMove` curve. For a landing that overshoots a little, use `bouncy`.
 
 Each window replays the overview animation on its own timeline, shifted by its delay. Every window still
 starts where it is and ends exactly where upstream would put it, so the final

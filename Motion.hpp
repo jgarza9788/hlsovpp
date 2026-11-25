@@ -91,12 +91,13 @@ float windowProgress(const SParams& params, float percent, float delay, const st
 
 // ── speed ───────────────────────────────────────────────────────────────────
 
-// motion:speed range: 0 keeps the base speed, +1 is twice as fast, -1 half.
-inline constexpr float MAX_SPEED = 4.F;
+// motion:speed is the open/close duration in milliseconds: 0 = no animation.
+inline constexpr float MAX_DURATION_MS     = 1500.F;
+inline constexpr float DEFAULT_DURATION_MS = 666.F;
 
-// Animation duration (Hyprland speed units, 1 = 100 ms) for `speed` applied
-// to `baseDuration`. Clamped to +/-MAX_SPEED; NaN means unchanged.
-float scaledDuration(float baseDuration, float speed);
+// Hyprland animation speed units (1 = 100 ms) for a duration in ms. Clamped to
+// 0..MAX_DURATION_MS; a non-finite value means DEFAULT_DURATION_MS.
+float durationToSpeedUnits(float durationMs);
 
 // ── tilt ────────────────────────────────────────────────────────────────────
 
