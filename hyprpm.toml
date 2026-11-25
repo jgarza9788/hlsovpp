@@ -7,7 +7,7 @@ name = "hlsovpp"
 authors = ["jgarza", "yayuuu"]
 commit_pins = [
     # Hyprland                                  hlsovpp
-    ["efb50993780079460b0cbed1363e2166a2de1d9f", "26ab4078aec7225ee1fe1f4106246b3a8b567cbe"], # v0.56.2 (branch hyprland-0.56)
+    ["efb50993780079460b0cbed1363e2166a2de1d9f", "86885fe1eace1c418beb5ddd7ba25405bb5b29bd"], # v0.56.2 (branch hyprland-0.56)
 ]
 
 [scrolloverview]
