@@ -212,12 +212,11 @@ static void testTilt() {
 }
 
 static void testSpeed() {
-    CHECK(std::fabs(scaledDuration(5.F, 0.F) - 5.F) < 1e-5F);    // 0 = same as windowsMove
-    CHECK(std::fabs(scaledDuration(5.F, 1.F) - 2.5F) < 1e-5F);   // faster = shorter
-    CHECK(std::fabs(scaledDuration(5.F, -1.F) - 10.F) < 1e-5F);  // slower = longer
-    CHECK(std::fabs(scaledDuration(5.F, 99.F) - scaledDuration(5.F, MAX_SPEED)) < 1e-5F);
-    CHECK(std::fabs(scaledDuration(5.F, -99.F) - scaledDuration(5.F, -MAX_SPEED)) < 1e-5F);
-    CHECK(std::fabs(scaledDuration(5.F, NAN) - 5.F) < 1e-5F);
+    CHECK(durationToSpeedUnits(0.F) == 0.F);                                      // 0 = no animation
+    CHECK(std::fabs(durationToSpeedUnits(666.F) - 6.66F) < 1e-5F);
+    CHECK(std::fabs(durationToSpeedUnits(99999.F) - 15.F) < 1e-5F);               // clamps to max
+    CHECK(durationToSpeedUnits(-5.F) == 0.F);                                     // clamps to min
+    CHECK(std::fabs(durationToSpeedUnits(NAN) - 6.66F) < 1e-5F);                  // non-finite = default
 }
 
 int main() {

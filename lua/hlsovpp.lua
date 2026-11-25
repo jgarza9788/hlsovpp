@@ -18,7 +18,7 @@ if hl.plugin.scrolloverview then
       origin = "focus",
       direction = "forward",
       easing = "follow",
-      speed = 0,
+      speed = 666,
       tilt = 0,
       rewind_on_close = true,
       on_gesture = false,
