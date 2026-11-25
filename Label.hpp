@@ -10,9 +10,9 @@
 
 namespace OverviewLabel {
 
-// Label texture in monitor pixels, or null when there is nothing to show.
+// Label texture in monitor pixels (title ellipsized to `maxWidth`, icon only when even that is too tight), or null when there is nothing to show.
 // `style` is the user's label styling (colors resolve here, "accent" = the Omarchy theme accent).
-SP<Render::ITexture> texture(const PHLWINDOW& window, float monitorScale, int fontSize, const ScrollOverview::Config::SLabelStyle& style);
+SP<Render::ITexture> texture(const PHLWINDOW& window, float monitorScale, int fontSize, const ScrollOverview::Config::SLabelStyle& style, float maxWidth);
 
 // Forget every cached label (the overview closed).
 void clear();
