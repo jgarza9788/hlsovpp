@@ -850,12 +850,8 @@ static void renderOverviewLabel(PHLMONITOR monitor, const PHLWINDOW& window, con
     if (!tex || !tex->ok() || tex->m_size.x < 1 || tex->m_size.y < 1)
         return;
 
-    // Narrow cards shrink the pill; tiny ones go without.
-    const float FIT = std::min(1.F, sc<float>(windowBox.width * 0.9 / tex->m_size.x));
-    if (FIT < 0.5F)
-        return;
-
-    CBox box = {0, 0, tex->m_size.x * FIT, tex->m_size.y * FIT};
+    // The title is ellipsized to the card in OverviewLabel::texture; the pill is never scaled.
+    CBox box = {0, 0, tex->m_size.x, tex->m_size.y};
     box.x    = windowBox.x + (windowBox.width - box.width) / 2.0;
     if (STYLE.position == "top")
         box.y = windowBox.y + box.height * 0.5;

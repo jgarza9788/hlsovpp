@@ -350,6 +350,10 @@ SP<Render::ITexture> build(const std::string& title, const std::string& windowCl
     const double HEIGHT  = std::ceil(fontPx * 2.4);
     const int    MAXTEXT = fontPx * 22;
 
+    // Text keeps its size; a card too narrow for a useful snippet gets the icon alone, or no label without an icon.
+    if (!style.icon && maxW - 2 * PAD < fontPx * 3)
+        return nullptr;
+
     const auto ICONFILE = style.icon ? iconFileFor(windowClass) : std::string{};
     const auto ICON     = ICONFILE.empty() ? nullptr : loadIcon(ICONFILE, ICONPX);
     const bool BADGE    = style.icon && !(ICON && ICON->cairo()); // no icon found: a letter badge keeps the pills aligned
