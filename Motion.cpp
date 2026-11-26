@@ -19,7 +19,7 @@ constexpr std::array<std::pair<std::string_view, EStyle>, 5> STYLES = {{
 }};
 
 constexpr std::array<SEasing, 3> EASINGS = {{
-    {"smooth", 0.42F, 0.F, 0.58F, 1.F},  // gentle start and stop (ease-in-out)
+    {"smooth", 0.65F, 0.F, 0.35F, 1.F},  // long, soft start and stop (ease-in-out-cubic)
     {"snappy", 0.16F, 1.F, 0.3F, 1.F},   // fast start, soft landing (expo-out)
     {"bouncy", 0.34F, 1.56F, 0.64F, 1.F}, // small overshoot that settles (back-out)
 }};
